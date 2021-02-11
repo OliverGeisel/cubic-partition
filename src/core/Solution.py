@@ -2,48 +2,68 @@ from __future__ import annotations
 
 import random
 from copy import copy, deepcopy
-from typing import List, Tuple
+from typing import List, Tuple, Dict
 
 import numpy as np
 
-from core.Point import Point
+from core.Point import Point, BidirectPoint
 
 
 def default_init(solution):
     for point in solution.complete_graph:
-        solution.partitions[random.randint(0, len(solution.partitions) - 1)].add(point)
+        index = random.randint(0, len(solution.partitions) - 1)
+        solution.partitions[index].add(point)
 
 
 class Solution:
 
     @staticmethod
     def empty_solution() -> Solution:
-        return Solution(list(), 0)
+        """
+        Creates an empty Solution wirh no Point and 0 Partitions
+        :return: an new empty Solution
+        """
+        return Solution(tuple(), 0)
 
     @staticmethod
     def solution_from_numpy_array(array: np.ndarray) -> Solution:
+        """
+        Parse a Solution from a numpy-array, if the shape is matching
+        :param array: the array with
+        :return: the Solution that contains the Points and structure from the array
+        """
         shape = array.shape
-        solution = Solution(list(), shape[0])
+        solution = Solution(tuple(), shape[0])
+        all_points = list()
         partitions = list()
         for partition in array:
             new_partition = Partition()
             for point in partition:
                 new_point = Point(*point)
                 new_partition.add(new_point)
-                solution.complete_graph.append(new_point)
+                all_points.append(new_point)
             partitions.append(new_partition)
         solution.partitions = partitions
+        solution.complete_graph = tuple(all_points)
         # solution.complete_graph = [Point(*point) for pat in array for point in pat]
         return solution
 
-    def __init__(self, instance: List[Point], partitions: int = 3, init_func=default_init, old_solution=None):
+    def __init__(self, instance: Tuple[Point], partitions: int = 3, init_func=default_init,
+                 old_solution=None):
+        """
+        Constructor of a new Solution.
+        :param instance: List of all Points in the graph
+        :param partitions: Number of Partitions for the solution
+        :param init_func: initial mapping from points to partitions. If ist not specified the default_init
+        :param old_solution: The from that the new Solution been derived
+        """
         self.size = len(instance)
         self.partitions = [Partition() for x in range(partitions)]
+        # TODO maybe as np.array 
         self.complete_graph = instance
         self.__old_solution = old_solution
         init_func(self)
-        for part in self.partitions:
-            part.update_center()
+        self.update_centers()
 
     def __len__(self):
         return self.size
@@ -52,8 +72,17 @@ class Solution:
         for part in self.partitions:
             part.update_center()
 
+    def sort_partitions(self):
+        """Sorts all Partitions in the solution in ascending order. So nearest Point to center is at index\
+         0 and removed point is at last index. """
+        for part in self.partitions:
+            part.get_points().sort(key=lambda x: x - part.get_center())
+
     def get_centers(self) -> List[Point]:
         return [part.get_center() for part in self.partitions]
+
+    def get_center_map(self) -> Dict[Point, Partition]:
+        return {part.get_center(): Partition() for part in self.partitions}
 
     def get_value(self) -> float:
         back = 0
@@ -61,19 +90,26 @@ class Solution:
         num_points = self.size
 
         for partition in self.partitions:
-            cardi_partition = len(partition)
+            points_in_partition = len(partition)
             sum_all_points = 0
-            for point in partition.points_in_partition:
+            for point in partition:
+                # TODO NUMPY parallelize
                 sum_point = 0
-                for other_point in partition.points_in_partition:
+                for other_point in partition:
                     sum_point += point - other_point
                 sum_all_points += sum_point
-            back += (1 / num_partitions) * (cardi_partition / num_points) * sum_all_points
+            back += (points_in_partition * sum_all_points) / (num_points * num_partitions)
         return back
 
-    def is_changed(self):
+    def get_old_solution(self):
+        return self.__old_solution
+
+    def set_old_solution(self, origin: Solution):
+        self.__old_solution = origin
+
+    def is_changed(self) -> bool:
         for x in self.partitions:
-            if x.changed:
+            if x.is_changed():
                 return True
         return False
 
@@ -88,12 +124,21 @@ class Solution:
         complete = [part.to_numpy_array() for part in self.partitions]
         return np.array(complete)
 
+    def to_BiPoint_list(self):
+        back = list()
+        for part in self.partitions:
+            back.extend(part.to_BiPoint_list())
+        return back
+
     def clone(self) -> Solution:
+        """
+        Creates a new Solution that is a independent copy of this object. Note that the complete graph is \
+        not copied and is a reference to the single
+        :return:
+        """
         clone = copy(self)
         clone.partitions = deepcopy(self.partitions)
         return clone
-
-
 
 
 #### Partition
@@ -106,63 +151,91 @@ class Partition:
 
     def __init__(self, center: Point = Point()):
         self._center = center
-        self.points_in_partition = list()
-        self.changed = False
+        self.__points_in_partition = list()
+        self.__changed = False
+        self.__variance = 0.0
 
     def __abs__(self):
         back = 0
-        for point in self.points_in_partition:
+        for point in self:
             back += point - self._center
-        return back / len(self.points_in_partition)
+        return back / len(self)
 
     def __iter__(self):
-        return self.points_in_partition.__iter__()
+        return self.__points_in_partition.__iter__()
 
     def __len__(self):
-        return len(self.points_in_partition)
+        return len(self.__points_in_partition)
 
     def __deepcopy__(self, memodict):
-        return copy(self)
+        """
+        Copy all shallow. Only the points_in_partition is can be modified independent from others
+        :param memodict: omitted
+        :return: a copy of this object
+        """
+        back = copy(self)
+        back.__points_in_partition = copy(back.__points_in_partition)
+        return back
 
     def add(self, point: Point):
-        self.points_in_partition.append(point)
-        self.changed = True
+        self.__points_in_partition.append(point)
+        self.__changed = True
 
     def remove(self, point: Point):
-        self.points_in_partition.remove(point)
-        self.changed = True
+        self.__points_in_partition.remove(point)
+        self.__changed = True
 
-    def update_center(self):
-        if not self.is_changed():
-            return
+    def update_center(self) -> bool:
+        if not self.is_changed() or len(self) == 0:
+            return True
         x_val = 0
         y_val = 0
         z_val = 0
 
-        for point in self.points_in_partition:
+        for point in self:
             x_val += point.x
             y_val += point.y
             z_val += point.z
-        num_points = len(self.points_in_partition)
-        if num_points == 0:
-            return
+        num_points = len(self)
         self._center = Point(x_val / num_points, y_val / num_points, z_val / num_points)
-        self.changed = False
+        self.__changed = False
+        return True
 
-    def get_variance(self) -> float:
+    def __update_variance(self):
+        distance_sum = 0.0
+        for p in self:
+            # TODO NUMPY map + reduce
+            distance_sum += p - self._center
+        self.__variance = distance_sum / len(self)
+
+    def get_except_value(self) -> float:
         """
         is semantic equivalent to __abs__
         :return:
         """
-        variance_sum = 0
-        for p in self.points_in_partition:
-            variance_sum += p - self._center
-        return variance_sum / len(self.points_in_partition)
+        if self.is_changed():
+            self.update_center()
+            self.__update_variance()
+        return self.__variance
 
-    def get_max_distance_point(self) -> Point:
+    def get_variance(self) -> float:
+        back = 0.0
+        excepted = self.get_except_value()
+        center = self._center
+        for point in self:
+            back += (point - center) - excepted
+        return back
+
+    def get_points(self) -> List[Point]:
+        return self.__points_in_partition
+
+    def set_points(self, points):
+        self.__points_in_partition=points
+
+    def get_most_distant_point(self) -> Point:
         max_point = None
         max_dist = 0
-        for p in self.points_in_partition:
+        for p in self:
             dist = p - self._center
             if dist > max_dist:
                 max_dist = p - self._center
@@ -173,22 +246,22 @@ class Partition:
         x = list()
         y = list()
         z = list()
-        for point in self.points_in_partition:
+        for point in self:
             x.append(point.x)
             y.append(point.y)
             z.append(point.z)
         return x, y, z
 
     def split_to_two(self) -> Tuple[Partition, Partition]:
-        max_dist = self.get_max_distance_point()
-        # Todo factor for new center depending on variance to max point
+        max_dist = self.get_most_distant_point()
+        # Todo factor for new center depending on distance to max point
         new_center1 = max_dist / self._center
         vector = new_center1 // self._center
         new_center2 = self._center + vector
 
         new_part1 = Partition(new_center1)
         new_part2 = Partition(new_center2)
-        for p in self.points_in_partition:
+        for p in self:
             if p - new_center1 < p - new_center2:
                 new_part1.add(p)
             else:
@@ -198,11 +271,19 @@ class Partition:
         return new_part1, new_part2
 
     def to_numpy_array(self):
-        complete = [point.to_tuple() for point in self.points_in_partition]
+        complete = [point.to_tuple() for point in self]
         return np.array(complete)
 
+    def to_BiPoint_list(self):
+        return [BidirectPoint(*point.to_tuple(), partition=self) for point in self]
+
     def get_center(self) -> Point:
+        if self.is_changed():
+            self.update_center()
         return self._center
 
     def is_changed(self) -> bool:
-        return self.changed
+        return self.__changed
+
+    def changed(self):
+        self.__changed = True

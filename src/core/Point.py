@@ -102,6 +102,9 @@ class BidirectPoint(Point):
     def get_partition(self):
         return self.__partition
 
+    def __str__(self):
+        return super(BidirectPoint, self).__str__() + f"{self.__partition}"
+
 
 def random_Point(min_x=0, max_x=10, min_y=0, max_y=10, min_z=0, max_z=10):
     return Point(random.uniform(min_x, max_x), random.uniform(min_y, max_y), random.uniform(min_z, max_z))

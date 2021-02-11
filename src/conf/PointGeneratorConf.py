@@ -1,9 +1,8 @@
 class PointGeneratorConf:
 
-    def __init__(self):
-        pass
+    def __init__(self, amount: int):
+        self.amount = amount
 
     @classmethod
     def default_Conf(cls):
-
-        return cls()
+        return PointGeneratorConf(1 << 8)

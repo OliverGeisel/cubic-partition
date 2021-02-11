@@ -1,7 +1,7 @@
 import random
+from itertools import product, repeat, cycle
 from typing import List, Tuple
 import ipyvolume as ipv
-import numpy as np
 import sys
 
 import matplotlib.pyplot as plot
@@ -16,11 +16,11 @@ from core.solver import Solution, transformation
 
 def generate_instance() -> Tuple[List[Point], Solution]:
     generator = Generator.SphereGenerator()
-    return generator.create_point_Instance(200, 2, 2).get_instance_and_correct_solution()
+    return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
-def solve(instance) -> Solution:
-    iterations = 5
+def solve(instance: Tuple[Point]) -> Solution:
+    iterations = 5  # simulated annealing parameter T
     check_condition = True
     evaluator = Evaluate.Evaluation(None)
     # create random solution
@@ -37,6 +37,7 @@ def solve(instance) -> Solution:
         # evaluate
 
         # update check condition
+        # "update T"
         # pass
     return run_solution
 
@@ -55,10 +56,18 @@ list_of_marker = ['o',
                   '^',
                   's']
 
-list_of_IPYVmarker = ['diamond',
-                      'arrow',
+list_of_IPYVmarker = ['arrow',
                       'box',
-                      'sphere']
+                      'diamond',
+                      'sphere',
+                      'point_2d',
+                      'square_2d',
+                      'triangle_2d',
+                      'circle_2d']
+
+combi_IPV = list(product(list_of_colors, list_of_IPYVmarker))
+random.shuffle(combi_IPV)
+combi_IPV = cycle(combi_IPV)
 
 
 def complete(final_solution: Solution, correct_solution: Solution = None) -> None:
@@ -66,7 +75,7 @@ def complete(final_solution: Solution, correct_solution: Solution = None) -> Non
     Will print result in 3D world
     :return: Noting
     """
-
+    global combi_IPV
     # init of plot-output #1
     figure = plot.figure()
     axes = figure.add_subplot(111, projection='3d')
@@ -94,7 +103,8 @@ def complete(final_solution: Solution, correct_solution: Solution = None) -> Non
         for part in correct_solution.partitions:
             marker = random.choice(list_of_IPYVmarker)
             color = random.choice(list_of_colors)
-            ipv.scatter(*convert.partition_to_IpyVolume(part), marker=marker, color=color)
+            temp = combi_IPV.__next__()
+            ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
         extra_figures.append(figure_correct)
     figure_result = ipv.figure("result")
     container = ipv.gcc()
@@ -105,7 +115,8 @@ def complete(final_solution: Solution, correct_solution: Solution = None) -> Non
     for part in final_solution.partitions:
         marker = random.choice(list_of_IPYVmarker)
         color = random.choice(list_of_colors)
-        ipv.scatter(*convert.partition_to_IpyVolume(part), marker=marker, color=color)
+        temp = combi_IPV.__next__()
+        ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
 
     ipv.pylab.xyzlim(-1, 11)
     ipv.current.container.children = list(ipv.current.container.children) + extra_figures
