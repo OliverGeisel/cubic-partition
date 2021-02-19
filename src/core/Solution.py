@@ -72,6 +72,22 @@ class Solution:
         for part in self.partitions:
             part.update_center()
 
+    def make_valid(self):
+        for part in self.partitions:
+            part.make_valid()
+
+    def remove_empty_partiton(self):
+        if not self.is_changed():
+            return
+        partitions_to_remove = list()
+        # collect all empty partitions
+        for part in self.partitions:
+            if len(part) == 0:
+                partitions_to_remove.append(part)
+        # remove all empty partitions
+        for part in partitions_to_remove:
+            self.partitions.remove(part)
+
     def sort_partitions(self):
         """Sorts all Partitions in the solution in ascending order. So nearest Point to center is at index\
          0 and removed point is at last index. """
@@ -81,8 +97,11 @@ class Solution:
     def get_centers(self) -> List[Point]:
         return [part.get_center() for part in self.partitions]
 
+    def get_center_map_with_new(self) -> Dict[Point, Partition]:
+        return {part.get_center(): Partition(part.get_center()) for part in self.partitions}
+
     def get_center_map(self) -> Dict[Point, Partition]:
-        return {part.get_center(): Partition() for part in self.partitions}
+        return {part.get_center(): part for part in self.partitions}
 
     def get_value(self) -> float:
         back = 0
@@ -108,8 +127,8 @@ class Solution:
         self.__old_solution = origin
 
     def is_changed(self) -> bool:
-        for x in self.partitions:
-            if x.is_changed():
+        for part in self.partitions:
+            if part.is_changed():
                 return True
         return False
 
@@ -140,6 +159,18 @@ class Solution:
         clone.partitions = deepcopy(self.partitions)
         return clone
 
+    def new_with_self_as_old(self):
+        """
+        Creates a clone of the solution and set the Solution, that was called, as old_solution. This method is \
+        equivalent to:
+         new_solution = solution.clone()
+         new_solution.set_old_solution(solution)
+        :return:  New Solution where all is equivalent to the called object except the old_solution is the called object
+        """
+        back = self.clone()
+        back.set_old_solution(self)
+        return back
+
 
 #### Partition
 
@@ -150,16 +181,20 @@ class Partition:
     # distance onlyx update if changed
 
     def __init__(self, center: Point = Point()):
+        """
+        
+        :param center: The center of the partition. Default ist the Origin
+        """
+        self.__invalid_expected_value = True
+        self.__invalid_std_deviation = True
+        self.__invalid_center = True
+        self.__std_deviation = -1
         self._center = center
         self.__points_in_partition = list()
-        self.__changed = False
-        self.__variance = 0.0
+        self.__expected_value = -1
 
     def __abs__(self):
-        back = 0
-        for point in self:
-            back += point - self._center
-        return back / len(self)
+        return self.get_except_value()
 
     def __iter__(self):
         return self.__points_in_partition.__iter__()
@@ -178,12 +213,25 @@ class Partition:
         return back
 
     def add(self, point: Point):
+        """
+        Add a Point to the Partition. Center and all other values are invalid
+        :param point: Point to add
+        :return: nothing
+        """
         self.__points_in_partition.append(point)
-        self.__changed = True
+        self.changed()
 
     def remove(self, point: Point):
-        self.__points_in_partition.remove(point)
-        self.__changed = True
+        """
+        Remove a Point
+        :param point:
+        :return:
+        """
+        try:
+            self.__points_in_partition.remove(point)
+        except ValueError:
+            raise ValueError(f"Point: {point} is not in the Partition")
+        self.changed()
 
     def update_center(self) -> bool:
         if not self.is_changed() or len(self) == 0:
@@ -198,47 +246,67 @@ class Partition:
             z_val += point.z
         num_points = len(self)
         self._center = Point(x_val / num_points, y_val / num_points, z_val / num_points)
-        self.__changed = False
+        self.__invalid_center = False
         return True
 
-    def __update_variance(self):
+    def __update_expected_value(self):
         distance_sum = 0.0
         for p in self:
             # TODO NUMPY map + reduce
             distance_sum += p - self._center
-        self.__variance = distance_sum / len(self)
+        self.__expected_value = distance_sum / len(self)
+        self.__invalid_expected_value = False
 
     def get_except_value(self) -> float:
         """
         is semantic equivalent to __abs__
         :return:
         """
-        if self.is_changed():
-            self.update_center()
-            self.__update_variance()
-        return self.__variance
+        if self.__invalid_expected_value:
+            self.__update_expected_value()
+        return self.__expected_value
 
-    def get_variance(self) -> float:
-        back = 0.0
-        excepted = self.get_except_value()
-        center = self._center
+    def __update_standard_deviation(self):
+        center = self.get_center()
+        exp_value = self.get_except_value()
+        update = 0
         for point in self:
-            back += (point - center) - excepted
-        return back
+            update += ((point - center) - exp_value) ** 2
+        self.__std_deviation = update
+        self.__invalid_std_deviation = False
+
+    def get_standard_deviation(self) -> float:
+        if self.__invalid_std_deviation:
+            self.__update_standard_deviation()
+        return self.__std_deviation
 
     def get_points(self) -> List[Point]:
         return self.__points_in_partition
 
     def set_points(self, points):
-        self.__points_in_partition=points
+        self.__points_in_partition = points
+        self.changed()
+
+    def make_valid(self):
+        # call all updates
+        self.update_center()
+        self.__update_standard_deviation()
+        self.__update_expected_value()
+
+    def changed(self):
+        self.__invalid_center = True
+        self.__invalid_std_deviation = True
+        self.__invalid_expected_value = True
 
     def get_most_distant_point(self) -> Point:
+        # Todo improve
         max_point = None
         max_dist = 0
+        center = self.get_center()
         for p in self:
-            dist = p - self._center
+            dist = p - center
             if dist > max_dist:
-                max_dist = p - self._center
+                max_dist = dist
                 max_point = p
         return max_point
 
@@ -270,20 +338,20 @@ class Partition:
         new_part1.update_center()
         return new_part1, new_part2
 
+    def get_center(self) -> Point:
+        if self.__invalid_center:
+            self.update_center()
+        return self._center
+
+    def is_changed(self) -> bool:
+        return self.__invalid_center or self.__invalid_expected_value or self.__invalid_std_deviation
+
+    def is_valid(self):
+        return not self.is_changed()
+
     def to_numpy_array(self):
         complete = [point.to_tuple() for point in self]
         return np.array(complete)
 
     def to_BiPoint_list(self):
         return [BidirectPoint(*point.to_tuple(), partition=self) for point in self]
-
-    def get_center(self) -> Point:
-        if self.is_changed():
-            self.update_center()
-        return self._center
-
-    def is_changed(self) -> bool:
-        return self.__changed
-
-    def changed(self):
-        self.__changed = True

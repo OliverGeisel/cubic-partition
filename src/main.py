@@ -46,8 +46,8 @@ list_of_colors = ["#ff0000",  # red
                   "#00ff00",  # blue
                   "#0000ff",  # green
                   "#00ffff",  # cyan
-                  "#ff00ff",  # yellow
-                  "#ffff00",  # magenta
+                  "#ff00ff", # magenta
+                  # "#ffff00",  # yellow
                   # "#ffffff", # White
                   "#000000"   # black
                   ]
@@ -60,7 +60,7 @@ list_of_IPYVmarker = ['arrow',
                       'box',
                       'diamond',
                       'sphere',
-                      'point_2d',
+                     # 'point_2d',
                       'square_2d',
                       'triangle_2d',
                       'circle_2d']
