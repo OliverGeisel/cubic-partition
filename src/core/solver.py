@@ -3,9 +3,10 @@ from __future__ import annotations
 import math
 import random
 from itertools import chain, combinations
-from typing import Tuple
+from typing import Tuple, List
+from enum import Enum
 
-from core.Point import Point
+from core.Point import Point, random_Point
 from core.Solution import Solution, Partition
 
 """
@@ -14,6 +15,55 @@ def nearest_init(solution):
 
     pass
 """
+
+"""
+Level of operation- Concept:
+    
+    There are 3 levels of operation
+     - Solution
+     - Partition
+     - Point
+     
+    Operations that assigned to Solution:
+     - Add Partition
+     - Remove Partition
+     - Iterate Cluster
+    
+    Operations that assigned to Partition:
+     - Split to two 
+     - Reduce
+     
+    Operations that assigned to Point:
+     - move_X_percent/ move_5_percent
+     - move one specific point
+
+
+"""
+
+
+class Parameter(object):
+    """
+        possible parameters to check
+        clusters
+        points
+        edges
+    """
+
+    pass
+
+    def __init__(self):
+        self.x = 0
+
+
+class TransformationOperation(Enum):
+    MANUAL = 0
+    ADD = 1
+    REMOVE = 2
+    SPLIT = 3
+    MOVE_X = 4
+    MOVE_5 = 5
+    ITERATE = 6
+    REDUCE = 7
 
 
 # generate multiple solutions from current with different params neighbours
@@ -26,22 +76,46 @@ def transform_current_solution(run_solution, param_set):
         new_solutions.append(transformation(run_solution, params))
 
 
-class Parameter(object):
+def go_x_steps_back(solution: Solution, x: int):
+    run = 0
+    tmp_solution = solution
+    while run < x:
+        if tmp_solution.get_old_solution() is not None:
+            tmp_solution = tmp_solution.get_old_solution()
+            run += 1
+        else:
+            raise Exception(f"The parameter X was too high there is/are only {run} steps done before")
+    return tmp_solution
+
+
+def transformation(run_solution: Solution, params: Parameter = Parameter()) -> List[Solution]:
     """
-        possible parameters to check
-        clusters
-        points
-        edges
-
-
-
-
-
+    Decide between cluster_iteration, add_cluster, reduce_cluster, move_point, move_X_percent,  TODO AND ...
+    :param run_solution:
+    :param params:
+    :return:
     """
-    pass
+    neighborhood = list()
+    # iterate
+    neighborhood.append(iterate_n_times(run_solution, 5))
+    # add
+    neighborhood.append((add_partition(run_solution, 5, random_Point())))
+    # remove
+    neighborhood.append(remove_partition(run_solution, 5))
+    # move
+    neighborhood.append(move_5_percent(run_solution))
+    # moveX
+    neighborhood.append(move_x_percent(run_solution, 10))
+    # split
+    neighborhood.append(split_cluster(run_solution))
+    # reduce
+    neighborhood.append(reduce_cluster(run_solution))
 
-    def __init__(self):
-        self.x = 0
+    return neighborhood
+
+    # how big is the neighborhood
+
+    # create all neighbors
 
 
 def cluster_iteration(run_solution: Solution) -> Solution:
@@ -54,24 +128,40 @@ def cluster_iteration(run_solution: Solution) -> Solution:
     """
     back = Solution.empty_solution()
     back.set_old_solution(run_solution)
-    back.complete_graph = run_solution.complete_graph
-    center_map = run_solution.get_center_map()
+    back.change_instance(run_solution.get_instance())
+    center_map = run_solution.get_center_map_with_new()
     # TODO parallelize
-    for point in run_solution.complete_graph:
+    for point in run_solution.get_instance():
         min_dist = math.inf
-        min_dist_point = None
-        # get smallest 
+        min_dist_center = None
+        # get smallest
         for center in center_map.keys():
             new_dist = point - center
             if new_dist < min_dist:
                 min_dist = new_dist
-                min_dist_point = center
-        # assign point to matching cluster
-        new_partition = center_map[min_dist_point]
+                min_dist_center = center
+        # assign point to matching partition
+        new_partition = center_map[min_dist_center]
         new_partition.add(point)
     back.partitions = list(center_map.values())
     back.update_centers()
     return back
+
+
+def iterate_n_times(solution: Solution, n: int = 5):
+    """
+    Runs N times the cluster_iteration and omits the history of the intermediate steps. The Old_Solution is the solution that is given by the parameter
+    :param solution: The solution, that has to be iterated n times
+    :param n: Number of iterations
+    :return: A new Solution where n iterations of the clusters are done. The old_solution is the the solution that was \
+    given as parameter
+    """
+    iteration = solution
+    # Optional TODO can be converted in a work with a copy and don't create a new Object every iteration
+    for i in range(n):
+        iteration = cluster_iteration(iteration)
+    iteration.set_old_solution(solution)
+    return iteration
 
 
 def split_cluster(run_solution: Solution) -> Solution:
@@ -81,6 +171,7 @@ def split_cluster(run_solution: Solution) -> Solution:
     :return:
     """
     back = run_solution.clone()
+    back.set_old_solution(run_solution)
     max_var = 0
     pos = 0
     for index, part in enumerate(back.partitions):
@@ -96,6 +187,43 @@ def split_cluster(run_solution: Solution) -> Solution:
     return back
 
 
+def add_partition(run_solution: Solution, iterations: int, center: Point = None) -> Solution:
+    back = run_solution.new_with_self_as_old()
+    if center is None:
+        center = random_Point()
+    new_Partition = Partition(center)
+    back.partitions.append(new_Partition)
+    back = iterate_n_times(back, iterations)
+    back.set_old_solution(run_solution)
+    return back
+
+
+def remove_partition(run_solution: Solution, iterations: int, partition: Partition = None) -> Solution:
+    """
+    Remove one Partition from the given Solution. If no specific Partition is given the Partition with the highest deviation will be removed
+    :param run_solution:
+    :param iterations:
+    :param partition:
+    :return:
+    """
+    back = run_solution.new_with_self_as_old()
+    back.remove_empty_partiton()
+    if partition is not None:
+        back.partitions.remove(partition)
+    else:
+        partition_to_remove = None
+        max_deviation = -1
+        for part in back.partitions:
+            dev = part.get_standard_deviation()
+            if dev > max_deviation:
+                max_deviation = dev
+                partition_to_remove = part
+        back.partitions.remove(partition_to_remove)
+    back = iterate_n_times(back, iterations)
+    back.set_old_solution(run_solution)
+    return back
+
+
 def reduce_cluster(run_solution: Solution) -> Solution:
     """
     Select two partitions with smallest (center-) distance and merge them together.
@@ -106,6 +234,7 @@ def reduce_cluster(run_solution: Solution) -> Solution:
     if len(run_solution.partitions) == 1:
         raise Exception("There can't be less than one cluster!")
     back = run_solution.clone()
+    back.set_old_solution(run_solution)
     min_dist = math.inf
     cluster_to_reduce = list()
     pairs = combinations(back.partitions, 2)
@@ -135,7 +264,7 @@ def move_point(point: Point, origin: Partition, destination: Partition):
 
 def move_x_percent(run_solution: Solution, x: int) -> Solution:
     """
-    
+
     :param run_solution:
     :param x:
     :return:
@@ -168,17 +297,6 @@ def move_x_percent(run_solution: Solution, x: int) -> Solution:
 
 def move_5_percent(run_solution: Solution) -> Solution:
     return move_x_percent(run_solution, 5)
-
-
-def transformation(run_solution: Solution, params: Parameter = Parameter()) -> Solution:
-    """
-    Decide between cluster_iteration, add_cluster, reduce_cluster, move_point, move_X_percent,  TODO AND ...
-    :param run_solution:
-    :param params:
-    :return:
-    """
-
-    return cluster_iteration(run_solution)
 
 
 def first_solution(instance: Tuple[Point], num_part: int = -1) -> Solution:

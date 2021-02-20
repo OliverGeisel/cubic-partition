@@ -106,5 +106,20 @@ class BidirectPoint(Point):
         return super(BidirectPoint, self).__str__() + f"{self.__partition}"
 
 
+class BidiectPointEncode(Point):
+    def __init__(self, x=0.0, y=0.0, z=0.0, partition_number=-1):
+        super().__init__(x, y, z)
+        self.__partition = partition_number
+
+    def get_partition(self):
+        return self.__partition
+
+    def __str__(self):
+        return super(Point, self).__str__() + f"{self.__partition}"
+
+    def to_tuple(self):
+        return self.x, self.y, self.z, self.__partition
+
+
 def random_Point(min_x=0, max_x=10, min_y=0, max_y=10, min_z=0, max_z=10):
     return Point(random.uniform(min_x, max_x), random.uniform(min_y, max_y), random.uniform(min_z, max_z))

@@ -104,12 +104,35 @@ def in_same_part(p1: BidirectPoint, p2: BidirectPoint) -> bool:
 
 def cost_default(p1, p2, p3) -> float:
     back = 0.0
-    p1 - p2 + p1 - p3 + p2 - p3
+    back = (p1 - p2) + (p1 - p3) + (p2 - p3)
     return back
 
 
 def cost_neg_default(p1, p2, p3) -> float:
-    return min(p1 - p2, p1 - p3, p2 - p3)
+    return min(p1 - p2, p1 - p3, p2 - p3) * .01
+
+
+def in_same_part2(p1, p2) -> bool:
+    return p1[3] == p2[3]
+
+
+def cost_default2(p1, p2, p3) -> float:
+    back = 0.0
+    d1 = p1 - p2
+    d2 = p1 - p3
+    d3 = p2 - p3
+    back = math.sqrt(np.square(d1[:-1]).sum()) + math.sqrt(np.square(d2[:-1]).sum()) + math.sqrt(np.square(d3[:-1]).sum())
+    return back
+
+
+def cost_neg_default2(p1, p2, p3) -> float:
+    d1 = p1 - p2
+    d2 = p1 - p3
+    d3 = p2 - p3
+    p12 = math.sqrt(np.square(d1[:-1]).sum())
+    p13 = math.sqrt(np.square(d2[:-1]).sum())
+    p23 = math.sqrt(np.square(d3[:-1]).sum())
+    return min(p12, p23, p13)
 
 
 def naive_imp(solution: Solution, cost=cost_default, cost_neg=cost_neg_default):
@@ -124,4 +147,24 @@ def naive_imp(solution: Solution, cost=cost_default, cost_neg=cost_neg_default):
         x3 = in_same_part(p2, p3)
         x_sum = x1 * x2 * x3
         sum += cost(p1, p2, p3) * x_sum + cost_neg(p1, p2, p3) * (1 - x_sum)
+    sum /= len(solution)
+    sum *= len(solution.partitions)
+    return sum
+
+
+def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default2):
+    sum = 0.0
+    tmp1 = [point.to_tuple() for point in solution.to_BiPointEncode_list()]
+    three_points = combinations(np.array(tmp1,), 3)
+    for triple in three_points:
+        p1 = triple[0]
+        p2 = triple[1]
+        p3 = triple[2]
+        x1 = in_same_part2(p1, p2)
+        x2 = in_same_part2(p1, p3)
+        x3 = in_same_part2(p2, p3)
+        x_sum = x1 * x2 * x3
+        sum += cost(p1, p2, p3) * x_sum + cost_neg(p1, p2, p3) * (1 - x_sum)
+    sum /= len(solution)
+    sum *= len(solution.partitions)
     return sum

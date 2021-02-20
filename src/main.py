@@ -12,6 +12,7 @@ from generator import Generator
 from core import solver, Evaluate
 from core.Point import Point
 from core.solver import Solution, transformation
+from helper.shortcuts import print_iterative
 
 
 def generate_instance() -> Tuple[List[Point], Solution]:
@@ -31,13 +32,20 @@ def solve(instance: Tuple[Point]) -> Solution:
         # iterate to get a best solution (local minima)
         # Todo need config how often long and exact
         # call solver functions
-        run_solution = transformation(run_solution)
+        new_solutions = transformation(run_solution)
         # reduce
 
         # evaluate
-
+        scores = [-1] * len(new_solutions)
+        for index,neigboor in enumerate(new_solutions):
+            scores[index] = Evaluate.naive_imp(neigboor)
+        print_iterative(scores)
         # update check condition
         # "update T"
+        # get best result
+        best_score = min(scores)
+        best_neighbor = scores.index(best_score)
+
         # pass
     return run_solution
 

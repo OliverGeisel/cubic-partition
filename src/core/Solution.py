@@ -6,11 +6,11 @@ from typing import List, Tuple, Dict
 
 import numpy as np
 
-from core.Point import Point, BidirectPoint
+from core.Point import Point, BidirectPoint, BidiectPointEncode
 
 
 def default_init(solution):
-    for point in solution.complete_graph:
+    for point in solution.get_instance():
         index = random.randint(0, len(solution.partitions) - 1)
         solution.partitions[index].add(point)
 
@@ -44,7 +44,7 @@ class Solution:
                 all_points.append(new_point)
             partitions.append(new_partition)
         solution.partitions = partitions
-        solution.complete_graph = tuple(all_points)
+        solution.change_instance(tuple(all_points))
         # solution.complete_graph = [Point(*point) for pat in array for point in pat]
         return solution
 
@@ -60,7 +60,7 @@ class Solution:
         self.size = len(instance)
         self.partitions = [Partition() for x in range(partitions)]
         # TODO maybe as np.array 
-        self.complete_graph = instance
+        self.__complete_graph = instance
         self.__old_solution = old_solution
         init_func(self)
         self.update_centers()
@@ -126,6 +126,18 @@ class Solution:
     def set_old_solution(self, origin: Solution):
         self.__old_solution = origin
 
+    def get_instance(self):
+        return self.__complete_graph
+
+    def change_instance(self, new_graph, new_default: bool = False):
+        self.__complete_graph = new_graph
+        self.size = len(new_graph)
+        for part in self.partitions:
+            part.changed()
+        if new_default:
+            default_init(self)
+            self.update_centers()
+
     def is_changed(self) -> bool:
         for part in self.partitions:
             if part.is_changed():
@@ -143,10 +155,21 @@ class Solution:
         complete = [part.to_numpy_array() for part in self.partitions]
         return np.array(complete)
 
+    def to_unmpy_array_bidirect(self):
+        tmp = [part.to_numpy_array_bidirect(number) for number, part in enumerate(self.partitions)]
+        return np.array(tmp)
+
+
     def to_BiPoint_list(self):
         back = list()
         for part in self.partitions:
             back.extend(part.to_BiPoint_list())
+        return back
+
+    def to_BiPointEncode_list(self ):
+        back = list()
+        for number,part in enumerate(self.partitions):
+            back.extend(part.to_BiPointEncode_list(number))
         return back
 
     def clone(self) -> Solution:
@@ -346,12 +369,19 @@ class Partition:
     def is_changed(self) -> bool:
         return self.__invalid_center or self.__invalid_expected_value or self.__invalid_std_deviation
 
-    def is_valid(self):
+    def is_valid(self) -> bool:
         return not self.is_changed()
 
     def to_numpy_array(self):
         complete = [point.to_tuple() for point in self]
         return np.array(complete)
 
-    def to_BiPoint_list(self):
+    def to_numpy_array_bidirect(self, partition_unumber = -1):
+        temp = self.to_BiPointEncode_list(partition_unumber)
+        return np.array([point.to_tuple() for point in temp])
+
+    def to_BiPoint_list(self) -> List[BidirectPoint]:
         return [BidirectPoint(*point.to_tuple(), partition=self) for point in self]
+
+    def to_BiPointEncode_list(self, part_num) -> List[BidiectPointEncode]:
+        return [BidiectPointEncode(*point.to_tuple(), partition_number=part_num) for point in self]
