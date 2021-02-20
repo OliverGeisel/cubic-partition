@@ -64,7 +64,7 @@ class PointGenerator(Generator):
             self.correct = deepcopy(correct)
         all_points = [random_Point() for x in range(self.conf.amount)]
         self.points.extend(all_points)
-        self.correct.complete_graph = tuple(all_points)
+        self.correct.change_instance(tuple(all_points))
         self._created = True
         return self
 
@@ -82,7 +82,7 @@ class CubeGenerator(Generator):
             self.points.extend(points)
         if correct is not None:
             self.correct = deepcopy(correct)
-        all_points = list(self.correct.complete_graph)
+        all_points = list(self.correct.get_instance())
         for partition in range(self.conf.clusters):
             base_point = random_Point()
             new_partition = Partition(base_point)
@@ -92,7 +92,7 @@ class CubeGenerator(Generator):
                 all_points.append(new_point)
                 self.points.append(new_point)
             self.correct.partitions.append(new_partition)
-        self.correct.complete_graph = tuple(all_points)
+        self.correct.change_instance(tuple(all_points))
         self.correct.size = len(all_points)
         self._created = True
         return self
@@ -151,7 +151,7 @@ class SphereGenerator(Generator):
         if correct is not None:
             self.correct = deepcopy(correct)
         self.correct.size += self.conf.clusters * self.conf.points_per_cluster
-        all_points = list(self.correct.complete_graph)
+        all_points = list(self.correct.get_instance())
         for cluster in range(self.conf.clusters):
             base_point = random_Point()
             partition = Partition(base_point)
@@ -163,6 +163,6 @@ class SphereGenerator(Generator):
                 all_points.append(new_point)
                 partition.add(new_point)
             self.correct.partitions.append(partition)
-        self.correct.complete_graph = tuple(all_points)
+        self.correct.change_instance(tuple(all_points))
         self._created = True
         return self
