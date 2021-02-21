@@ -4,10 +4,10 @@ import math
 import random
 from itertools import chain, combinations
 from typing import Tuple, List
-from enum import Enum
 
 from core.Point import Point, random_Point
 from core.Solution import Solution, Partition
+from core.transformOperation import TransformationOperation  as tro, TransformationOperation
 
 """
 def nearest_init(solution):
@@ -55,17 +55,6 @@ class Parameter(object):
         self.x = 0
 
 
-class TransformationOperation(Enum):
-    MANUAL = 0
-    ADD = 1
-    REMOVE = 2
-    SPLIT = 3
-    MOVE_X = 4
-    MOVE_5 = 5
-    ITERATE = 6
-    REDUCE = 7
-
-
 # generate multiple solutions from current with different params neighbours
 def transform_current_solution(run_solution, param_set):
     # run multiple transformations for current solution
@@ -77,18 +66,26 @@ def transform_current_solution(run_solution, param_set):
 
 
 def go_x_steps_back(solution: Solution, x: int):
+    """
+    To escape a stuck solution
+    :param solution:
+    :param x:
+    :return: The Solution which was created x steps before plus the next used 
+    """
     run = 0
     tmp_solution = solution
+    child = None
     while run < x:
         if tmp_solution.get_old_solution() is not None:
+            child = tmp_solution
             tmp_solution = tmp_solution.get_old_solution()
             run += 1
         else:
             raise Exception(f"The parameter X was too high there is/are only {run} steps done before")
-    return tmp_solution
+    return tmp_solution, child
 
 
-def transformation(run_solution: Solution, params: Parameter = Parameter()) -> List[Solution]:
+def transformation(run_solution: Solution) -> List[Solution]:
     """
     Decide between cluster_iteration, add_cluster, reduce_cluster, move_point, move_X_percent,  TODO AND ...
     :param run_solution:
@@ -116,6 +113,12 @@ def transformation(run_solution: Solution, params: Parameter = Parameter()) -> L
     # how big is the neighborhood
 
     # create all neighbors
+
+def advanced_transformation(run_solution : Solution, options: List[Tuple[TransformationOperation, ]]):
+    back = list()
+    for option in options:
+        if True:
+            pass
 
 
 def cluster_iteration(run_solution: Solution) -> Solution:
@@ -184,6 +187,7 @@ def split_cluster(run_solution: Solution) -> Solution:
     back.partitions.remove(max_cluster)
     back.partitions.append(cluster1)
     back.partitions.append(cluster2)
+    back.set_create_operation(tro.SPLIT)
     return back
 
 
@@ -207,7 +211,7 @@ def remove_partition(run_solution: Solution, iterations: int, partition: Partiti
     :return:
     """
     back = run_solution.new_with_self_as_old()
-    back.remove_empty_partiton()
+    back.remove_empty_partition()
     if partition is not None:
         back.partitions.remove(partition)
     else:

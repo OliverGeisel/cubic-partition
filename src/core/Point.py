@@ -65,6 +65,9 @@ class Point:
     def __mul__(self, other) -> Point:
         return Point(self.x * other, self.y * other, self.z * other)
 
+    def __matmul__(self, other) -> float:
+        return self.x * other.x + self.y * other.y * self.z * other.z
+
     def __floordiv__(self, other) -> Tuple[float, float, float]:
         """
         Get the direction-Vector of the two points. Note left Point is source and right is target
@@ -92,6 +95,22 @@ class Point:
 
     def to_tuple(self):
         return self.x, self.y, self.z
+
+    def vector_product(self, other: Point) -> Tuple[float, float, float]:
+        x1 = self.y * other.z - self.z * other.y
+        x2 = self.z * other.x - self.x * other.z
+        x3 = self.x * other.y - self.y * other.x
+        return x1, x2, x3
+
+    def get_normalized_vector(self) -> Tuple[float, float, float]:
+        absolute = abs(self)
+        x = self.x / absolute
+        y = self.y / absolute
+        z = self.z / absolute
+        return x, y, z
+
+    def get_normalized_point(self):
+        return Point(*self.get_normalized_vector())
 
 
 class BidirectPoint(Point):

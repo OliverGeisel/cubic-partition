@@ -103,7 +103,6 @@ def in_same_part(p1: BidirectPoint, p2: BidirectPoint) -> bool:
 
 
 def cost_default(p1, p2, p3) -> float:
-    back = 0.0
     back = (p1 - p2) + (p1 - p3) + (p2 - p3)
     return back
 
@@ -155,7 +154,7 @@ def naive_imp(solution: Solution, cost=cost_default, cost_neg=cost_neg_default):
 def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default2):
     sum = 0.0
     tmp1 = [point.to_tuple() for point in solution.to_BiPointEncode_list()]
-    three_points = combinations(np.array(tmp1,), 3)
+    three_points = combinations(np.array(tmp1), 3)
     for triple in three_points:
         p1 = triple[0]
         p2 = triple[1]

@@ -1,5 +1,6 @@
 import random
 from itertools import product, repeat, cycle
+from pathlib import Path
 from typing import List, Tuple
 import ipyvolume as ipv
 import sys
@@ -37,7 +38,7 @@ def solve(instance: Tuple[Point]) -> Solution:
 
         # evaluate
         scores = [-1] * len(new_solutions)
-        for index,neigboor in enumerate(new_solutions):
+        for index, neigboor in enumerate(new_solutions):
             scores[index] = Evaluate.naive_imp(neigboor)
         print_iterative(scores)
         # update check condition
@@ -54,10 +55,10 @@ list_of_colors = ["#ff0000",  # red
                   "#00ff00",  # blue
                   "#0000ff",  # green
                   "#00ffff",  # cyan
-                  "#ff00ff", # magenta
+                  "#ff00ff",  # magenta
                   # "#ffff00",  # yellow
                   # "#ffffff", # White
-                  "#000000"   # black
+                  "#000000"  # black
                   ]
 
 list_of_marker = ['o',
@@ -68,14 +69,52 @@ list_of_IPYVmarker = ['arrow',
                       'box',
                       'diamond',
                       'sphere',
-                     # 'point_2d',
-                      'square_2d',
+                      # 'point_2d',
+                      # 'square_2d',
                       'triangle_2d',
                       'circle_2d']
 
 combi_IPV = list(product(list_of_colors, list_of_IPYVmarker))
 random.shuffle(combi_IPV)
 combi_IPV = cycle(combi_IPV)
+
+
+def to_3D_view(solution: Solution, correct_solution: Solution = None):
+    extra_figures = list()
+    # create correct solution
+    if correct_solution is not None:
+        figure_correct = ipv.figure("correct")
+        ipv.pylab.xyzlim(-1, 11)
+        for part in correct_solution.partitions:
+            marker = random.choice(list_of_IPYVmarker)
+            color = random.choice(list_of_colors)
+            temp = combi_IPV.__next__()
+            ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
+        extra_figures.append(figure_correct)
+    figure_result = ipv.figure("result")
+    container = ipv.gcc()
+    ipv.current.container = widgets.HBox(container.children)
+    ipv.current.containers["result"] = ipv.current.container
+
+    # crate computed solution
+    for part in solution.partitions:
+        marker = random.choice(list_of_IPYVmarker)
+        color = random.choice(list_of_colors)
+        temp = combi_IPV.__next__()
+        ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
+
+    ipv.pylab.xyzlim(0, 11)
+    ipv.current.container.children = list(ipv.current.container.children) + extra_figures
+    ipv.show()
+
+
+def save_as_html(name, dir: str = None):
+    path = Path() if dir is None else Path(dir)
+    # must not be used
+    # if not path.is_dir():
+    #     raise Exception("The given directory is no directory")
+    # Todo Check if name end with .html
+    ipv.save(str(path) + name + ".html", makedirs=True, title="3D visual")
 
 
 def complete(final_solution: Solution, correct_solution: Solution = None) -> None:
@@ -102,35 +141,9 @@ def complete(final_solution: Solution, correct_solution: Solution = None) -> Non
     # init 3D view
     ipv.current.containers.clear()
     ipv.current.figures.clear()
-
-    extra_figures = list()
-    # create correct solution
-    if correct_solution is not None:
-        figure_correct = ipv.figure("correct")
-        ipv.pylab.xyzlim(-1, 11)
-        for part in correct_solution.partitions:
-            marker = random.choice(list_of_IPYVmarker)
-            color = random.choice(list_of_colors)
-            temp = combi_IPV.__next__()
-            ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
-        extra_figures.append(figure_correct)
-    figure_result = ipv.figure("result")
-    container = ipv.gcc()
-    ipv.current.container = widgets.HBox(container.children)
-    ipv.current.containers["result"] = ipv.current.container
-
-    # crate computed solution
-    for part in final_solution.partitions:
-        marker = random.choice(list_of_IPYVmarker)
-        color = random.choice(list_of_colors)
-        temp = combi_IPV.__next__()
-        ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
-
-    ipv.pylab.xyzlim(-1, 11)
-    ipv.current.container.children = list(ipv.current.container.children) + extra_figures
-    ipv.show()
+    to_3D_view(final_solution, correct_solution)
     # save in a separate file
-    ipv.save("example.html")
+    save_as_html("final")
 
     # destroy 3D views
     ipv.clear()

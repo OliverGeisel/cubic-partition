@@ -7,6 +7,7 @@ from typing import List, Tuple, Dict
 import numpy as np
 
 from core.Point import Point, BidirectPoint, BidiectPointEncode
+from core.transformOperation import TransformationOperation as tro
 
 
 def default_init(solution):
@@ -26,10 +27,11 @@ class Solution:
         return Solution(tuple(), 0)
 
     @staticmethod
-    def solution_from_numpy_array(array: np.ndarray) -> Solution:
+    def solution_from_numpy_array(array: np.ndarray, make_valid=True) -> Solution:
         """
         Parse a Solution from a numpy-array, if the shape is matching
         :param array: the array with
+        :param make_valid: calculate all necessary values for partitions and solution
         :return: the Solution that contains the Points and structure from the array
         """
         shape = array.shape
@@ -46,6 +48,8 @@ class Solution:
         solution.partitions = partitions
         solution.change_instance(tuple(all_points))
         # solution.complete_graph = [Point(*point) for pat in array for point in pat]
+        if make_valid:
+            solution.make_valid()
         return solution
 
     def __init__(self, instance: Tuple[Point], partitions: int = 3, init_func=default_init,
@@ -58,7 +62,8 @@ class Solution:
         :param old_solution: The from that the new Solution been derived
         """
         self.size = len(instance)
-        self.partitions = [Partition() for x in range(partitions)]
+        self.__create_operation = tro.NOT_SPECIFIC
+        self.partitions = [Partition() for point in range(partitions)]
         # TODO maybe as np.array 
         self.__complete_graph = instance
         self.__old_solution = old_solution
@@ -76,7 +81,7 @@ class Solution:
         for part in self.partitions:
             part.make_valid()
 
-    def remove_empty_partiton(self):
+    def remove_empty_partition(self):
         if not self.is_changed():
             return
         partitions_to_remove = list()
@@ -138,6 +143,12 @@ class Solution:
             default_init(self)
             self.update_centers()
 
+    def set_create_operation(self, operation: TransformationOperation):
+        self.__create_operation = operation
+
+    def get_create_operation(self):
+        return self.__create_operation
+
     def is_changed(self) -> bool:
         for part in self.partitions:
             if part.is_changed():
@@ -159,16 +170,15 @@ class Solution:
         tmp = [part.to_numpy_array_bidirect(number) for number, part in enumerate(self.partitions)]
         return np.array(tmp)
 
-
     def to_BiPoint_list(self):
         back = list()
         for part in self.partitions:
             back.extend(part.to_BiPoint_list())
         return back
 
-    def to_BiPointEncode_list(self ):
+    def to_BiPointEncode_list(self):
         back = list()
-        for number,part in enumerate(self.partitions):
+        for number, part in enumerate(self.partitions):
             back.extend(part.to_BiPointEncode_list(number))
         return back
 
@@ -376,7 +386,7 @@ class Partition:
         complete = [point.to_tuple() for point in self]
         return np.array(complete)
 
-    def to_numpy_array_bidirect(self, partition_unumber = -1):
+    def to_numpy_array_bidirect(self, partition_unumber=-1):
         temp = self.to_BiPointEncode_list(partition_unumber)
         return np.array([point.to_tuple() for point in temp])
 
