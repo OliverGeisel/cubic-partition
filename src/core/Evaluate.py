@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import math
 from itertools import combinations
+from multiprocessing import Pool
 
 from typing import List
 
@@ -99,7 +100,7 @@ class Evaluation:
 
 
 def in_same_part(p1: BidirectPoint, p2: BidirectPoint) -> bool:
-    return p1.get_partition() is p2.get_partition()
+    return p1._partition is p2._partition
 
 
 def cost_default(p1, p2, p3) -> float:
@@ -120,7 +121,8 @@ def cost_default2(p1, p2, p3) -> float:
     d1 = p1 - p2
     d2 = p1 - p3
     d3 = p2 - p3
-    back = math.sqrt(np.square(d1[:-1]).sum()) + math.sqrt(np.square(d2[:-1]).sum()) + math.sqrt(np.square(d3[:-1]).sum())
+    back = math.sqrt(np.square(d1[:-1]).sum()) + math.sqrt(np.square(d2[:-1]).sum()) + math.sqrt(
+        np.square(d3[:-1]).sum())
     return back
 
 
@@ -141,14 +143,62 @@ def naive_imp(solution: Solution, cost=cost_default, cost_neg=cost_neg_default):
         p1 = triple[0]
         p2 = triple[1]
         p3 = triple[2]
-        x1 = in_same_part(p1, p2)
-        x2 = in_same_part(p1, p3)
-        x3 = in_same_part(p2, p3)
+        x1 = p1._partition is p2._partition
+        x2 = p1._partition is p3._partition
+        x3 = p2._partition is p3._partition
         x_sum = x1 * x2 * x3
-        sum += cost(p1, p2, p3) * x_sum + cost_neg(p1, p2, p3) * (1 - x_sum)
+
+        sum += cost(p1, p2, p3) if x_sum else cost_neg(p1, p2, p3)
     sum /= len(solution)
     sum *= len(solution.partitions)
     return sum
+
+
+def calc(triple):
+    p1 = triple[0]
+    p2 = triple[1]
+    p3 = triple[2]
+    x1 = p1._partition is p2._partition
+    x2 = p1._partition is p3._partition
+    x3 = p2._partition is p3._partition
+    x_sum = x1 * x2 * x3
+    dist1 = p1 - p2
+    dist2 = p1 - p3
+    dist3 = p2 - p3
+    return (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+
+
+def naive_imp_fast(solution: Solution, parallel=False):
+    result = 0.0
+    # calc point penalty
+    three_points = combinations(solution.to_BiPoint_list(), 3)
+    if parallel:
+        results = None
+        with Pool() as pool:
+            results = pool.map(calc, three_points)
+        result = sum(results)
+    else:
+        result = sum(map(calc, three_points))
+    # add += (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+    result /= len(solution)
+    result *= len(solution.partitions)
+    # calc partition penalty
+    num_parts = len(solution.partitions)
+    partition_penalty = 0
+    for part in solution.partitions:
+        size = len(part)
+        min_distance = math.inf
+        other_size = 0
+        center_map = solution.get_center_map()
+        for center in center_map.keys():
+            if center is part.get_center():
+                continue
+            dist = center - part.get_center()
+            if min_distance > dist:
+                min_distance = dist
+                other_size = len(center_map[center])
+        partition_penalty += (size + other_size) / (min_distance * 2) * (result/len(solution)) * 0.5# factor depending of variation and other values of partitions
+    return result + partition_penalty
 
 
 def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default2):
@@ -166,4 +216,5 @@ def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default
         sum += cost(p1, p2, p3) * x_sum + cost_neg(p1, p2, p3) * (1 - x_sum)
     sum /= len(solution)
     sum *= len(solution.partitions)
+
     return sum

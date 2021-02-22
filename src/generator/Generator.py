@@ -10,7 +10,7 @@ import core
 from conf.CubeGeneratorConf import CubeGeneratorConf
 from conf.PointGeneratorConf import PointGeneratorConf
 from conf.planeGeneratorConf import PlaneGeneratorConf
-from core.Point import random_Point, Point
+from core.Point import random_Point, Point, GlobalPoint
 from core.Solution import Solution, Partition
 
 
@@ -34,6 +34,10 @@ class Generator(ABC):
         pass
 
     def reset_generator(self):
+        """
+        WARNING if is used Global index is wrong
+        :return:
+        """
         self._created = False
         self.points = self.points_from_init
         self.correct = self.solution_from_init
@@ -67,11 +71,12 @@ class PointGenerator(Generator):
             self.points.extend(points)
         if correct is not None:
             self.correct = deepcopy(correct)
-        all_points = [random_Point() for x in range(self.conf.amount)]
+        all_points = [GlobalPoint(*random_Point().to_tuple()) for x in range(self.conf.amount)]
         self.points.extend(all_points)
         self.correct.change_instance(tuple(all_points))
         self._created = True
         return self
+
 
 
 class CubeGenerator(Generator):
@@ -93,6 +98,7 @@ class CubeGenerator(Generator):
             new_partition = Partition(base_point)
             for run in range(self.conf.points_per_cluster):
                 new_point = Point.spread_point(base_point, self.conf.max_spread)
+                new_point = GlobalPoint(*new_point.to_tuple())
                 new_partition.add(new_point)
                 all_points.append(new_point)
                 self.points.append(new_point)
@@ -102,11 +108,10 @@ class CubeGenerator(Generator):
         self._created = True
         return self
 
+# Todo add all following generaor the global points
+
 
 class PlaneGenerator(Generator):
-    # TODO     implement
-    # Need  a Vector initializer
-    #      a random variance for error while draw
 
     def __init__(self, points=None, solution=None, conf: PlaneGeneratorConf = PlaneGeneratorConf.default_Conf()):
         super().__init__(points, solution)
@@ -117,7 +122,8 @@ class PlaneGenerator(Generator):
         pass
 
     @staticmethod
-    def point_in_plane_by_vectors(origin: Point, vec1:Tuple[float,float,float], vec2:Tuple[float,float,float], scalefactor_one, scalefactor_two, normaliced=True):
+    def point_in_plane_by_vectors(origin: Point, vec1: Tuple[float, float, float], vec2: Tuple[float, float, float],
+                                  scalefactor_one, scalefactor_two, normaliced=True):
         p1 = Point(*vec1)
         p2 = Point(*vec2)
         if normaliced:
@@ -132,9 +138,8 @@ class PlaneGenerator(Generator):
         vector1 = origin // point1
         vector2 = origin // point2
         # for easy use transfrom back to Point
-        return PlaneGenerator.point_in_plane_by_vectors(origin,vector1,vector2,scalefactor_one,scalefactor_two,normaliced)
-
-
+        return PlaneGenerator.point_in_plane_by_vectors(origin, vector1, vector2, scalefactor_one, scalefactor_two,
+                                                        normaliced)
 
     @staticmethod
     def create_normal_vector(origin, point1, point2) -> Tuple[float, float, float]:
@@ -172,6 +177,7 @@ class PlaneGenerator(Generator):
                                                                      self.conf.divergence, self.conf.divergence, False)
                 if self.conf.divergence != 0.0:
                     new_point = Point.spread_point(new_point, self.conf.max_spread)
+                    new_point = GlobalPoint(*new_point.to_tuple())
                 new_partition.add(new_point)
                 all_points.append(new_point)
                 self.points.append(new_point)
@@ -181,7 +187,7 @@ class PlaneGenerator(Generator):
         self._created = True
         return self
 
-    def add_plane(self, origin:Point, first_point:Point, second_point:Point):
+    def add_plane(self, origin: Point, first_point: Point, second_point: Point):
         tmp = list(self.conf.origins)
         tmp.append((origin, first_point, second_point))
         self.conf.origins = tuple(tmp)
@@ -210,9 +216,7 @@ class SphereGeneratorConf(object):
 
     @staticmethod
     def default_Conf():
-        return SphereGeneratorConf(1 << 8, 5, 1.0, )
-
-    pass
+        return SphereGeneratorConf(1 << 8, 5, 1.0)
 
 
 class SphereGenerator(Generator):
@@ -246,6 +250,7 @@ class SphereGenerator(Generator):
                 cords = split_random_in_x_parts(self.conf.max_spread ** 2, 3)
                 cords = [math.sqrt(x) * (-1) ** random.randint(0, 1) for x in cords]
                 new_point = Point(*cords) + base_point
+                new_point = GlobalPoint(*new_point.to_tuple())
                 self.points.append(new_point)
                 all_points.append(new_point)
                 partition.add(new_point)

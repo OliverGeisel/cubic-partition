@@ -6,7 +6,7 @@ from typing import List, Tuple, Dict
 
 import numpy as np
 
-from core.Point import Point, BidirectPoint, BidiectPointEncode
+from core.Point import Point, BidirectPoint, BidiectPointEncode, Bipoint_np
 from core.transformOperation import TransformationOperation as tro
 
 
@@ -181,6 +181,9 @@ class Solution:
         for number, part in enumerate(self.partitions):
             back.extend(part.to_BiPointEncode_list(number))
         return back
+
+    def to_np_encode_list(self):
+        return [Bipoint_np(*point.to_tuple()) for point in self.to_BiPointEncode_list()]
 
     def clone(self) -> Solution:
         """
@@ -367,8 +370,8 @@ class Partition:
                 new_part1.add(p)
             else:
                 new_part2.add(p)
-        new_part2.update_center()
-        new_part1.update_center()
+        new_part2.make_valid()
+        new_part1.make_valid()
         return new_part1, new_part2
 
     def get_center(self) -> Point:

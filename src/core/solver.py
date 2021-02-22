@@ -164,6 +164,9 @@ def iterate_n_times(solution: Solution, n: int = 5):
     for i in range(n):
         iteration = cluster_iteration(iteration)
     iteration.set_old_solution(solution)
+    iteration.remove_empty_partition()
+    iteration.make_valid()
+    iteration.set_create_operation(tro.ITERATE)
     return iteration
 
 
@@ -199,6 +202,7 @@ def add_partition(run_solution: Solution, iterations: int, center: Point = None)
     back.partitions.append(new_Partition)
     back = iterate_n_times(back, iterations)
     back.set_old_solution(run_solution)
+    back.set_create_operation(tro.ADD)
     return back
 
 
@@ -225,6 +229,7 @@ def remove_partition(run_solution: Solution, iterations: int, partition: Partiti
         back.partitions.remove(partition_to_remove)
     back = iterate_n_times(back, iterations)
     back.set_old_solution(run_solution)
+    back.set_create_operation(tro.REMOVE)
     return back
 
 
@@ -251,11 +256,12 @@ def reduce_cluster(run_solution: Solution) -> Solution:
     new_part = Partition()
     new_part.set_points(list(chain.from_iterable(cluster_to_reduce)))
     new_part.changed()
-    new_part.update_center()
+    new_part.make_valid()
 
     back.partitions.remove(cluster_to_reduce[0])
     back.partitions.remove(cluster_to_reduce[1])
     back.partitions.append(new_part)
+    back.set_create_operation(tro.REDUCE)
     return back
 
 
@@ -295,7 +301,8 @@ def move_x_percent(run_solution: Solution, x: int) -> Solution:
             # swap to other cluster
             move_point(point, part, centers[index_other])
     # update middle of swapped
-    back.update_centers()
+    back.make_valid()
+    back.set_create_operation(tro.MOVE_X)
     return back
 
 

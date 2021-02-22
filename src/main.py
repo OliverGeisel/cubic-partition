@@ -1,9 +1,12 @@
 import random
+import time
 from itertools import product, repeat, cycle
+from multiprocessing import Process, Pipe
 from pathlib import Path
 from typing import List, Tuple
 import ipyvolume as ipv
 import sys
+import numpy as np
 
 import matplotlib.pyplot as plot
 import ipywidgets as widgets
@@ -21,32 +24,82 @@ def generate_instance() -> Tuple[List[Point], Solution]:
     return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
+def evaluata_process(solution: Solution, pipe, parallel=False):
+    start = time.perf_counter()
+    result = Evaluate.naive_imp_fast(solution, parallel)
+    end = time.perf_counter()
+    print(f"Time: {end - start}")
+    pipe.send(result)
+    pipe.close()
+
+
+def set_global_indexes(solution):
+    count = 0
+    for point in solution.get_instance():
+        point.index = count
+        count += 1
+
+
 def solve(instance: Tuple[Point]) -> Solution:
     iterations = 5  # simulated annealing parameter T
     check_condition = True
     evaluator = Evaluate.Evaluation(None)
     # create random solution
     run_solution = solver.first_solution(instance, 2)
+
+    # calc all distances
+    set_global_indexes(run_solution)
+    all_dist = [p1 - p2 for p1 in run_solution.get_instance() for p2 in run_solution.get_instance()]
+    distance_map = np.array(all_dist, dtype=np.float32)
+    # iterate initial
+    run_solution = solver.iterate_n_times(run_solution, 10)
+    best_score = Evaluate.naive_imp_fast(run_solution, True)
     # evaluate
     # evaluated_value = evaluator.eval(run_solution)
+    print(f"initial value: {best_score}")
     for x in range(iterations):
+        print(f"in Iteration {x + 1}")
         # iterate to get a best solution (local minima)
         # Todo need config how often long and exact
         # call solver functions
         new_solutions = transformation(run_solution)
         # reduce
-
         # evaluate
         scores = [-1] * len(new_solutions)
-        for index, neigboor in enumerate(new_solutions):
-            scores[index] = Evaluate.naive_imp(neigboor)
-        print_iterative(scores)
+        # Parallel run
+        processes = list()
+        pipes = list()
+        for y in range(len(new_solutions)):
+            parent, child = Pipe()
+            pipes.append(parent)
+            new_process = Process(target=evaluata_process, args=(new_solutions[y], child,))
+            processes.append(new_process)
+            new_process.start()
+        for y, process in enumerate(processes):
+            scores[y] = pipes[y].recv()
+            process.join()
+            print(f"job {y} is done")
+        # for index, neigboor in enumerate(new_solutions):
+        #   scores[index] = Evaluate.naive_imp(neigboor)
         # update check condition
         # "update T"
         # get best result
-        best_score = min(scores)
-        best_neighbor = scores.index(best_score)
+        print("\n")
+        print_iterative(scores)
+        tmp_best_score = min(scores)
+        if tmp_best_score < best_score:
+            if abs(tmp_best_score - best_score) < 1.5:
+                print("No improvement")
+                break
+            print(
+                f"New best solution! From {best_score} to {tmp_best_score}\nOperation was {new_solutions[scores.index(tmp_best_score)].get_create_operation()}")
+            best_score = tmp_best_score
+            best_index = scores.index(best_score)
+            run_solution = new_solutions[best_index]
 
+        else:
+            print("No improvement")
+            break
         # pass
     return run_solution
 
@@ -84,10 +137,8 @@ def to_3D_view(solution: Solution, correct_solution: Solution = None):
     # create correct solution
     if correct_solution is not None:
         figure_correct = ipv.figure("correct")
-        ipv.pylab.xyzlim(-1, 11)
+        ipv.pylab.xyzlim(0, 11)
         for part in correct_solution.partitions:
-            marker = random.choice(list_of_IPYVmarker)
-            color = random.choice(list_of_colors)
             temp = combi_IPV.__next__()
             ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
         extra_figures.append(figure_correct)
@@ -98,11 +149,8 @@ def to_3D_view(solution: Solution, correct_solution: Solution = None):
 
     # crate computed solution
     for part in solution.partitions:
-        marker = random.choice(list_of_IPYVmarker)
-        color = random.choice(list_of_colors)
         temp = combi_IPV.__next__()
         ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
-
     ipv.pylab.xyzlim(0, 11)
     ipv.current.container.children = list(ipv.current.container.children) + extra_figures
     ipv.show()
@@ -114,7 +162,7 @@ def save_as_html(name, dir: str = None):
     # if not path.is_dir():
     #     raise Exception("The given directory is no directory")
     # Todo Check if name end with .html
-    ipv.save(str(path) + name + ".html", makedirs=True, title="3D visual")
+    ipv.save(str(path.absolute()) + name + ".html", makedirs=True, title="3D visual")
 
 
 def complete(final_solution: Solution, correct_solution: Solution = None) -> None:
@@ -150,7 +198,6 @@ def complete(final_solution: Solution, correct_solution: Solution = None) -> Non
 
 
 def run():
-    print("hello")
     # generate instance  set of 3D points
     instance, correct_colution = generate_instance()
     # find best solution for cubic partition problem

@@ -7,6 +7,25 @@ from typing import Tuple
 import numpy as np
 
 
+class Point_np:
+
+    def __init__(self, x=0.0, y=0.0, z=0.0):
+        self.values = np.array((x, y, z), dtype=np.float32)
+
+    def __abs__(self):
+        return np.sqrt(np.sum(np.square(self.values)))
+
+    def __sub__(self, other):
+        dist = self.values - other.values
+        return np.sqrt((dist * dist).sum())
+
+
+class Bipoint_np(Point_np):
+    def __init__(self, x, y, z, part):
+        super().__init__(x, y, z)
+        self._partition = part
+
+
 class Point:
     """
         A class that represents the Point in 3D.
@@ -60,7 +79,7 @@ class Point:
         dist_x = self.x - other.x
         dist_y = self.y - other.y
         dist_z = self.z - other.z
-        return math.sqrt(dist_x ** 2 + dist_y ** 2 + dist_z ** 2)
+        return math.sqrt(dist_x * dist_x + dist_y * dist_y + dist_z * dist_z)
 
     def __mul__(self, other) -> Point:
         return Point(self.x * other, self.y * other, self.z * other)
@@ -113,31 +132,45 @@ class Point:
         return Point(*self.get_normalized_vector())
 
 
+class GlobalPoint(Point):
+    __index_count = 0
+
+    @staticmethod
+    def __get_next_index():
+        tmp = GlobalPoint.__index_count
+        GlobalPoint.__index_count += 1
+        return tmp
+
+    def __init__(self, x, y, z):
+        super().__init__(x, y, z)
+        self.index = GlobalPoint.__get_next_index()
+
+
 class BidirectPoint(Point):
     def __init__(self, x=0.0, y=0.0, z=0.0, partition=None):
         super().__init__(x, y, z)
-        self.__partition = partition
+        self._partition = partition
 
     def get_partition(self):
-        return self.__partition
+        return self._partition
 
     def __str__(self):
-        return super(BidirectPoint, self).__str__() + f"{self.__partition}"
+        return super(BidirectPoint, self).__str__() + f"{self._partition}"
 
 
 class BidiectPointEncode(Point):
     def __init__(self, x=0.0, y=0.0, z=0.0, partition_number=-1):
         super().__init__(x, y, z)
-        self.__partition = partition_number
+        self._partition = partition_number
 
     def get_partition(self):
-        return self.__partition
+        return self._partition
 
     def __str__(self):
-        return super(Point, self).__str__() + f"{self.__partition}"
+        return super(Point, self).__str__() + f"{self._partition}"
 
     def to_tuple(self):
-        return self.x, self.y, self.z, self.__partition
+        return self.x, self.y, self.z, self._partition
 
 
 def random_Point(min_x=0, max_x=10, min_y=0, max_y=10, min_z=0, max_z=10):
