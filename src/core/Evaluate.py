@@ -99,6 +99,10 @@ class Evaluation:
         return eval_value
 
 
+def partition_silhouette(solution)->List[float]:
+   pass
+
+
 def in_same_part(p1: BidirectPoint, p2: BidirectPoint) -> bool:
     return p1._partition is p2._partition
 
@@ -218,3 +222,24 @@ def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default
     sum *= len(solution.partitions)
 
     return sum
+
+
+def naive_plane_imp(solution):
+    all_points = solution.to_BiPoint_list()
+    all_triples = combinations(all_points,3)
+    origin = Point()
+    # TODO parallels
+    for triple in all_points:
+        p1=triple[0]
+        p2=triple[1]
+        p3=triple[2]
+        # get normal vectors and normalize them 
+        vector1 = Point(*p1.vector_product(p2)).get_normalized_vector()
+        vector2 = Point(*p1.vector_product(p3)).get_normalized_vector()
+        vector3 = Point(*p2.vector_product(p3)).get_normalized_vector()
+        # compare
+        result1 = vector1 == vector2
+        result2 = vector1 == vector3
+        result3 = vector2 == vector3
+
+

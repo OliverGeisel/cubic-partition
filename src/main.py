@@ -24,7 +24,7 @@ def generate_instance() -> Tuple[List[Point], Solution]:
     return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
-def evaluata_process(solution: Solution, pipe, parallel=False):
+def evaluate_process(solution: Solution, pipe, parallel=False):
     start = time.perf_counter()
     result = Evaluate.naive_imp_fast(solution, parallel)
     end = time.perf_counter()
@@ -72,7 +72,7 @@ def solve(instance: Tuple[Point]) -> Solution:
         for y in range(len(new_solutions)):
             parent, child = Pipe()
             pipes.append(parent)
-            new_process = Process(target=evaluata_process, args=(new_solutions[y], child,))
+            new_process = Process(target=evaluate_process, args=(new_solutions[y], child,))
             processes.append(new_process)
             new_process.start()
         for y, process in enumerate(processes):
@@ -90,6 +90,7 @@ def solve(instance: Tuple[Point]) -> Solution:
         if tmp_best_score < best_score:
             if abs(tmp_best_score - best_score) < 1.5:
                 print("No improvement")
+                # run a new level -> DBSCAN 
                 break
             print(
                 f"New best solution! From {best_score} to {tmp_best_score}\nOperation was {new_solutions[scores.index(tmp_best_score)].get_create_operation()}")

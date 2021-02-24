@@ -327,3 +327,11 @@ def first_solution(instance: Tuple[Point], num_part: int = -1) -> Solution:
 def random_solution(instance: Tuple[Point], ) -> Solution:
     back = Solution(instance, random.randint(1, 10))
     return back
+
+def start_dbscan(solution, radius: float):
+    for part in solution.partitions:
+        pass
+        
+        
+
+

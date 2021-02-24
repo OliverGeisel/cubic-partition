@@ -7,7 +7,7 @@ from typing import List, Tuple, Dict
 import numpy as np
 
 from core.Point import Point, BidirectPoint, BidiectPointEncode, Bipoint_np
-from core.transformOperation import TransformationOperation as tro
+from core.transformOperation import TransformationOperation as tro, TransformationOperation
 
 
 def default_init(solution):
@@ -170,13 +170,13 @@ class Solution:
         tmp = [part.to_numpy_array_bidirect(number) for number, part in enumerate(self.partitions)]
         return np.array(tmp)
 
-    def to_BiPoint_list(self):
+    def to_BiPoint_list(self)->List[BidirectPoint]:
         back = list()
         for part in self.partitions:
             back.extend(part.to_BiPoint_list())
         return back
 
-    def to_BiPointEncode_list(self):
+    def to_BiPointEncode_list(self)->List[BidiectPointEncode]:
         back = list()
         for number, part in enumerate(self.partitions):
             back.extend(part.to_BiPointEncode_list(number))
@@ -316,6 +316,10 @@ class Partition:
             self.__update_standard_deviation()
         return self.__std_deviation
 
+    def get_silhouette(self):
+        pass
+        
+
     def get_points(self) -> List[Point]:
         return self.__points_in_partition
 
@@ -398,3 +402,11 @@ class Partition:
 
     def to_BiPointEncode_list(self, part_num) -> List[BidiectPointEncode]:
         return [BidiectPointEncode(*point.to_tuple(), partition_number=part_num) for point in self]
+
+class Subpartition(Partition):
+
+    def __init__(self):
+        pass
+
+class SubParts:
+            pass
