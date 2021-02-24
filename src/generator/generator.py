@@ -6,12 +6,11 @@ from abc import ABC, abstractmethod
 from copy import deepcopy, copy
 from typing import List, Tuple
 
-import core
 from conf.CubeGeneratorConf import CubeGeneratorConf
 from conf.PointGeneratorConf import PointGeneratorConf
 from conf.planeGeneratorConf import PlaneGeneratorConf
-from core.Point import random_Point, Point, GlobalPoint
-from core.Solution import Solution, Partition
+from core.point import random_Point, Point, GlobalPoint
+from core.solution import Solution, Partition
 
 
 class Generator(ABC):
@@ -78,7 +77,6 @@ class PointGenerator(Generator):
         return self
 
 
-
 class CubeGenerator(Generator):
 
     def __init__(self, points=None, solution=None, conf: CubeGeneratorConf = CubeGeneratorConf.default_Conf()):
@@ -107,6 +105,7 @@ class CubeGenerator(Generator):
         self.correct.size = len(all_points)
         self._created = True
         return self
+
 
 # Todo add all following generaor the global points
 

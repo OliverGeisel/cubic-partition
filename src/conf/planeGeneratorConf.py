@@ -1,6 +1,6 @@
 from typing import List, Tuple
 
-from core.Point import Point
+from core.point import Point
 
 
 class PlaneGeneratorConf(object):

@@ -6,8 +6,8 @@ from multiprocessing import Pool
 
 from typing import List
 
-from core.Point import Point, BidirectPoint
-from core.Solution import Solution, Partition
+from core.point import Point, BidirectPoint
+from core.solution import Solution, Partition
 
 import numpy as np
 

@@ -5,8 +5,8 @@ import random
 from itertools import chain, combinations
 from typing import Tuple, List
 
-from core.Point import Point, random_Point
-from core.Solution import Solution, Partition
+from core.point import Point, random_Point
+from core.solution import Solution, Partition
 from core.transformOperation import TransformationOperation  as tro, TransformationOperation
 
 """

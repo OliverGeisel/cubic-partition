@@ -109,6 +109,11 @@ class Point:
         dist_z = (self.z + other.z) / 2
         return Point(dist_x, dist_y, dist_z)
 
+    def __eq__(self, other):
+        if self is other:
+            return True
+        return self.x == other.x and self.y == other.y and self.z == other.z
+
     def __str__(self):
         return f"Point: x= {self.x} y= {self.y} z= {self.z}"
 

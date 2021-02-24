@@ -12,21 +12,21 @@ import matplotlib.pyplot as plot
 import ipywidgets as widgets
 
 import helper.converter as convert
-from generator import Generator
-from core import solver, Evaluate
-from core.Point import Point
+from generator import generator
+from core import solver, evaluate
+from core.point import Point
 from core.solver import Solution, transformation
 from helper.shortcuts import print_iterative
 
 
 def generate_instance() -> Tuple[List[Point], Solution]:
-    generator = Generator.SphereGenerator()
+    generator = generator.SphereGenerator()
     return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
 def evaluate_process(solution: Solution, pipe, parallel=False):
     start = time.perf_counter()
-    result = Evaluate.naive_imp_fast(solution, parallel)
+    result = evaluate.naive_imp_fast(solution, parallel)
     end = time.perf_counter()
     print(f"Time: {end - start}")
     pipe.send(result)
@@ -43,7 +43,7 @@ def set_global_indexes(solution):
 def solve(instance: Tuple[Point]) -> Solution:
     iterations = 5  # simulated annealing parameter T
     check_condition = True
-    evaluator = Evaluate.Evaluation(None)
+    evaluator = evaluate.Evaluation(None)
     # create random solution
     run_solution = solver.first_solution(instance, 2)
 
@@ -53,7 +53,7 @@ def solve(instance: Tuple[Point]) -> Solution:
     distance_map = np.array(all_dist, dtype=np.float32)
     # iterate initial
     run_solution = solver.iterate_n_times(run_solution, 10)
-    best_score = Evaluate.naive_imp_fast(run_solution, True)
+    best_score = evaluate.naive_imp_fast(run_solution, True)
     # evaluate
     # evaluated_value = evaluator.eval(run_solution)
     print(f"initial value: {best_score}")
