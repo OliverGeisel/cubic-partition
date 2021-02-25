@@ -114,6 +114,9 @@ class Point:
             return True
         return self.x == other.x and self.y == other.y and self.z == other.z
 
+    def __hash__(self):
+        return hash((self.x, self.y, self.z))
+
     def __str__(self):
         return f"Point: x= {self.x} y= {self.y} z= {self.z}"
 
@@ -151,10 +154,11 @@ class GlobalPoint(Point):
         self.index = GlobalPoint.__get_next_index()
 
 
-class BidirectPoint(Point):
-    def __init__(self, x=0.0, y=0.0, z=0.0, partition=None):
+class BidirectPoint(GlobalPoint):
+    def __init__(self, x=0.0, y=0.0, z=0.0, index=-1 ,partition=None):
         super().__init__(x, y, z)
         self._partition = partition
+        self.index = index
 
     def get_partition(self):
         return self._partition
@@ -163,10 +167,11 @@ class BidirectPoint(Point):
         return super(BidirectPoint, self).__str__() + f"{self._partition}"
 
 
-class BidiectPointEncode(Point):
-    def __init__(self, x=0.0, y=0.0, z=0.0, partition_number=-1):
+class BidiectPointEncode(GlobalPoint):
+    def __init__(self, x=0.0, y=0.0, z=0.0, index = -1, partition_number=-1):
         super().__init__(x, y, z)
         self._partition = partition_number
+        self.index = index
 
     def get_partition(self):
         return self._partition

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from copy import copy
+from itertools import combinations
 from typing import List, Tuple
 
 import numpy as np
@@ -119,7 +120,7 @@ class Partition:
     def get_points(self) -> List[Point]:
         return self.__points_in_partition
 
-    def set_points(self, points):
+    def set_points(self, points: List[Point]):
         self.__points_in_partition = points
         self.changed()
 
@@ -194,10 +195,13 @@ class Partition:
         return np.array([point.to_tuple() for point in temp])
 
     def to_BiPoint_list(self) -> List[BidirectPoint]:
-        return [BidirectPoint(*point.to_tuple(), partition=self) for point in self]
+        return [BidirectPoint(*point.to_tuple(),index=point.index, partition=self) for point in self]
 
     def to_BiPointEncode_list(self, part_num) -> List[BidiectPointEncode]:
-        return [BidiectPointEncode(*point.to_tuple(), partition_number=part_num) for point in self]
+        return [BidiectPointEncode(*point.to_tuple(), index=point.index, partition_number=part_num) for point in self]
+
+    def to_BiPoint_list_with_distance_map(self, map):
+        return [(BidirectPoint(*point.to_tuple(), partition=self), map) for point in self]
 
 
 class Subpartition(Partition):
@@ -208,3 +212,52 @@ class Subpartition(Partition):
 
 class SubParts:
     pass
+
+
+class PlanePartition(Partition):
+
+    def __init__(self, origin=Point()):
+        super().__init__(origin)
+        self.normal_vector = None
+        self.tension_vector1 = None
+        self.tension_vector2 = None
+        self.coordinates = None
+
+    def update_normal_vector(self, origin=None):
+        def normal_origin(p1: Point, p2: Point) -> Tuple[float, float, float]:
+            return p1.vector_product(p2)
+
+        def other_origin(p1, p2, origin) -> Tuple[float, float, float]:
+            vecpoint1 = Point(*(p1 - origin))
+            vecpoint2 = Point(*(p2 - origin))
+            return vecpoint1.vector_product(vecpoint2)
+
+        func = normal_origin if origin is None else other_origin
+        for triple in combinations(self, 3):
+            vec1 = func(triple[0], triple[1])
+            vec2 = func(triple[0], triple[2])
+            vec3 = func(triple[1], triple[2])
+
+    def __distance_from_plane(self, point) -> float:
+        normal = self.coordinates
+        normal_sum = normal[0] * point.x + normal[1] * point.y + normal[2] * point.z - normal[3]
+        dist_point = abs(point)
+        return normal_sum / dist_point
+
+    def get_normal_vector(self):
+        return self.normal_vector
+
+    def __update_standard_deviation(self):
+        deviation = 0.0
+        for point in self:
+            deviation += self.__distance_from_plane(point)
+        self.__std_deviation = deviation / len(self)
+        self.__invalid_std_deviation = False
+
+    def __update_expected_value(self):
+        self.__invalid_expected_value = False
+        return True
+
+    def update_center(self) -> bool:
+        self.__invalid_center = False
+        return True

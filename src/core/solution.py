@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import random
 from copy import copy, deepcopy
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Any
 
 import numpy as np
 
@@ -176,6 +176,14 @@ class Solution:
         for part in self.partitions:
             back.extend(part.to_BiPoint_list())
         return back
+
+    def to_BiPoint_list_with_distance_map(self, map) -> List[Tuple[BidirectPoint,Any]]:
+        back = list()
+        for part in self.partitions:
+            back.extend(part.to_BiPoint_list_with_distance_map(map))
+        return back
+
+    
 
     def to_BiPointEncode_list(self) -> List[BidiectPointEncode]:
         back = list()

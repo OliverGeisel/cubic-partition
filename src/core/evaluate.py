@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import math
 from itertools import combinations
-from multiprocessing import Pool
+from multiprocessing import Pool, shared_memory
 
 from typing import List
 
 from core.point import Point, BidirectPoint
-from core.solution import Solution, Partition
+from core.solution import Solution, Partition, PlaneSolution
 
 import numpy as np
 
@@ -99,8 +99,8 @@ class Evaluation:
         return eval_value
 
 
-def partition_silhouette(solution)->List[float]:
-   pass
+def partition_silhouette(solution) -> List[float]:
+    pass
 
 
 def in_same_part(p1: BidirectPoint, p2: BidirectPoint) -> bool:
@@ -162,13 +162,41 @@ def calc(triple):
     p1 = triple[0]
     p2 = triple[1]
     p3 = triple[2]
+    dist_map = triple[3]
+    size = int(math.sqrt(len(dist_map)))
     x1 = p1._partition is p2._partition
     x2 = p1._partition is p3._partition
     x3 = p2._partition is p3._partition
     x_sum = x1 * x2 * x3
-    dist1 = p1 - p2
-    dist2 = p1 - p3
-    dist3 = p2 - p3
+    if dist_map is None:
+        dist1 = p1 - p2
+        dist2 = p1 - p3
+        dist3 = p2 - p3
+    else:
+        dist1 = dist_map[p1.index * size + p2.index]
+        dist2 = dist_map[p1.index * size + p3.index]
+        dist3 = dist_map[p2.index * size + p3.index]
+    return (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+
+def calc_p(triple):
+    p1 = triple[0]
+    p2 = triple[1]
+    p3 = triple[2]
+    dist_map = shared_memory.SharedMemory(name="distance_map")
+    size = int(math.sqrt(len(dist_map.buf)))
+    x1 = p1._partition is p2._partition
+    x2 = p1._partition is p3._partition
+    x3 = p2._partition is p3._partition
+    x_sum = x1 * x2 * x3
+    if dist_map is None:
+        dist1 = p1 - p2
+        dist2 = p1 - p3
+        dist3 = p2 - p3
+    else:
+        dist1 = dist_map.buf[p1.index * size + p2.index]
+        dist2 = dist_map.buf[p1.index * size + p3.index]
+        dist3 = dist_map.buf[p2.index * size + p3.index]
+    dist_map.close()
     return (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
 
 
@@ -176,14 +204,19 @@ def naive_imp_fast(solution: Solution, parallel=False):
     result = 0.0
     # calc point penalty
     three_points = combinations(solution.to_BiPoint_list(), 3)
+    # first version of parallel process
+    distance_map = shared_memory.SharedMemory(name="distance_map")
+    #three_points = [(*triple, distance_map.buf) for triple in three_points]
+    # TODO find race condition and solve dist_map
     if parallel:
-        results = None
         with Pool() as pool:
-            results = pool.map(calc, three_points)
+            results = pool.map(calc_p, three_points)
         result = sum(results)
     else:
+        three_points = [(*triple, distance_map.buf) for triple in three_points]
         result = sum(map(calc, three_points))
     # add += (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+    distance_map.close()
     result /= len(solution)
     result *= len(solution.partitions)
     # calc partition penalty
@@ -201,10 +234,12 @@ def naive_imp_fast(solution: Solution, parallel=False):
             if min_distance > dist:
                 min_distance = dist
                 other_size = len(center_map[center])
-        partition_penalty += (size + other_size) / (min_distance * 2) * (result/len(solution)) * 0.5# factor depending of variation and other values of partitions
+        partition_penalty += (size + other_size) / (min_distance * 2) * (
+                result / len(solution)) * 0.5  # factor depending of variation and other values of partitions
     return result + partition_penalty
 
 
+# for np arrays
 def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default2):
     sum = 0.0
     tmp1 = [point.to_tuple() for point in solution.to_BiPointEncode_list()]
@@ -224,22 +259,36 @@ def naive_imp2(solution: Solution, cost=cost_default2, cost_neg=cost_neg_default
     return sum
 
 
-def naive_plane_imp(solution):
+def default_plane_cost(point1, point2, point3):
+    pass
+
+
+def default_plane_negative_cost(point1, point2, point3):
+    pass
+
+
+def naive_plane_imp(solution: PlaneSolution):
+    """
+    Only use if origin == (0,0,0)
+    :param solution:
+    :return:
+    """
     all_points = solution.to_BiPoint_list()
-    all_triples = combinations(all_points,3)
+    all_triples = combinations(all_points, 3)
     origin = Point()
+    eval_value = 0.0
     # TODO parallels
-    for triple in all_points:
-        p1=triple[0]
-        p2=triple[1]
-        p3=triple[2]
+    for triple in all_triples:
+        p1 = triple[0]
+        p2 = triple[1]
+        p3 = triple[2]
         # get normal vectors and normalize them 
-        vector1 = Point(*p1.vector_product(p2)).get_normalized_vector()
-        vector2 = Point(*p1.vector_product(p3)).get_normalized_vector()
-        vector3 = Point(*p2.vector_product(p3)).get_normalized_vector()
+        vector1 = Point(*p1.vector_product(p2)).get_normalized_point()
+        vector2 = Point(*p1.vector_product(p3)).get_normalized_point()
+        vector3 = Point(*p2.vector_product(p3)).get_normalized_point()
         # compare
-        result1 = vector1 == vector2
-        result2 = vector1 == vector3
-        result3 = vector2 == vector3
-
-
+        result1 = vector1 == vector2 or vector1 == (vector2 * -1)
+        result2 = vector1 == vector3 or vector1 == (vector3 * -1)
+        result3 = vector2 == vector3 or vector2 == (vector3 * -1)
+        result_sum = result1 * result2 * result3
+        eval_value += default_plane_cost(p1, p2, p3) if result_sum else default_plane_negative_cost(p1, p2, p3)

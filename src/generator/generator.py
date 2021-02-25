@@ -215,7 +215,7 @@ class SphereGeneratorConf(object):
 
     @staticmethod
     def default_Conf():
-        return SphereGeneratorConf(1 << 8, 5, 1.0)
+        return SphereGeneratorConf(1 << 7, 3, 1.0)
 
 
 class SphereGenerator(Generator):

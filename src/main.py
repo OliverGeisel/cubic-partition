@@ -1,9 +1,13 @@
+import os
 import random
 import time
+from ctypes import c_float
 from itertools import product, repeat, cycle
-from multiprocessing import Process, Pipe
+from multiprocessing import Process, Pipe, Array, shared_memory
 from pathlib import Path
 from typing import List, Tuple
+
+
 import ipyvolume as ipv
 import sys
 import numpy as np
@@ -12,7 +16,7 @@ import matplotlib.pyplot as plot
 import ipywidgets as widgets
 
 import helper.converter as convert
-from generator import generator
+from generator.generator import SphereGenerator
 from core import solver, evaluate
 from core.point import Point
 from core.solver import Solution, transformation
@@ -20,11 +24,11 @@ from helper.shortcuts import print_iterative
 
 
 def generate_instance() -> Tuple[List[Point], Solution]:
-    generator = generator.SphereGenerator()
+    generator = SphereGenerator()
     return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
-def evaluate_process(solution: Solution, pipe, parallel=False):
+def evaluate_process(solution: Solution, pipe,  parallel=False):
     start = time.perf_counter()
     result = evaluate.naive_imp_fast(solution, parallel)
     end = time.perf_counter()
@@ -49,11 +53,25 @@ def solve(instance: Tuple[Point]) -> Solution:
 
     # calc all distances
     set_global_indexes(run_solution)
-    all_dist = [p1 - p2 for p1 in run_solution.get_instance() for p2 in run_solution.get_instance()]
+    all_dist = list()
+    for p1 in run_solution.get_instance():
+        new_line = list()
+        for p2 in run_solution.get_instance():
+            new_line.append(p1-p2)
+        all_dist.extend(new_line)
+        
     distance_map = np.array(all_dist, dtype=np.float32)
+    shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map" )
+    tmp = np.ndarray(distance_map.shape, dtype=distance_map.dtype, buffer=shm.buf)
+    tmp[:] = distance_map[:]  # Copy the original data into shared memory
+    print(sys.getsizeof(distance_map))
     # iterate initial
     run_solution = solver.iterate_n_times(run_solution, 10)
-    best_score = evaluate.naive_imp_fast(run_solution, True)
+    start = time.perf_counter()
+
+    best_score = evaluate.naive_imp_fast(run_solution, False)
+    end = time.perf_counter()
+    print(f"Time init: {end-start}")
     # evaluate
     # evaluated_value = evaluator.eval(run_solution)
     print(f"initial value: {best_score}")
