@@ -109,6 +109,9 @@ class Point:
         dist_z = (self.z + other.z) / 2
         return Point(dist_x, dist_y, dist_z)
 
+    def __lt__(self, other) -> bool:
+        return abs(self) < abs(other)
+
     def __eq__(self, other):
         if self is other:
             return True
