@@ -1,12 +1,10 @@
 import os
 import random
 import time
-from ctypes import c_float
 from itertools import product, repeat, cycle
-from multiprocessing import Process, Pipe, Array, shared_memory
+from multiprocessing import Process, Pipe, Array, shared_memory, Pool
 from pathlib import Path
 from typing import List, Tuple
-
 
 import ipyvolume as ipv
 import sys
@@ -16,25 +14,26 @@ import matplotlib.pyplot as plot
 import ipywidgets as widgets
 
 import helper.converter as convert
+from conf.SolverConfiguration import SolverConfiguration
+from core.transformOperation import TransformationOperation
 from generator.generator import SphereGenerator
 from core import solver, evaluate
 from core.point import Point
-from core.solver import Solution, transformation
+from core.solver import ConcreteSolution, transformation
 from helper.shortcuts import print_iterative
 
 
-def generate_instance() -> Tuple[List[Point], Solution]:
+def generate_instance() -> Tuple[List[Point], ConcreteSolution]:
     generator = SphereGenerator()
     return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
-def evaluate_process(solution: Solution, pipe,  parallel=False):
+def evaluate_process(solution: ConcreteSolution) -> Tuple[float, TransformationOperation]:
     start = time.perf_counter()
-    result = evaluate.naive_imp_fast(solution, parallel)
+    result = evaluate.naive_imp_fast(solution, False)
     end = time.perf_counter()
-    print(f"Time: {end - start}")
-    pipe.send(result)
-    pipe.close()
+    print(f"Time: {end - start} : Operation {solution.get_create_operation()}")
+    return result, solution.get_create_operation()
 
 
 def set_global_indexes(solution):
@@ -44,39 +43,44 @@ def set_global_indexes(solution):
         count += 1
 
 
-def solve(instance: Tuple[Point]) -> Solution:
+def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfiguration.default()) -> ConcreteSolution:
     iterations = 5  # simulated annealing parameter T
     check_condition = True
     evaluator = evaluate.Evaluation(None)
     # create random solution
-    run_solution = solver.first_solution(instance, 2)
-
+    if config.multiple_start:
+        start_solutions = [solver.first_solution(instance, x) for x in range(10)]
+        # Todo implement multiple start and evaluate and get best
+        best = None
+        run_solution = best
+    else:
+        run_solution = solver.first_solution(instance, 2)
     # calc all distances
     set_global_indexes(run_solution)
     all_dist = list()
     for p1 in run_solution.get_instance():
         new_line = list()
         for p2 in run_solution.get_instance():
-            new_line.append(p1-p2)
-        all_dist.extend(new_line)
-        
+            new_line.append(p1 - p2)
+        all_dist.append(new_line)
     distance_map = np.array(all_dist, dtype=np.float32)
-    shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map" )
+    # write into shared for access over processes and all functions
+    shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map")
     tmp = np.ndarray(distance_map.shape, dtype=distance_map.dtype, buffer=shm.buf)
     tmp[:] = distance_map[:]  # Copy the original data into shared memory
-    print(sys.getsizeof(distance_map))
+
     # iterate initial
     run_solution = solver.iterate_n_times(run_solution, 10)
     start = time.perf_counter()
 
     best_score = evaluate.naive_imp_fast(run_solution, False)
     end = time.perf_counter()
-    print(f"Time init: {end-start}")
+    print(f"Time init: {end - start}")
     # evaluate
     # evaluated_value = evaluator.eval(run_solution)
     print(f"initial value: {best_score}")
-    for x in range(iterations):
-        print(f"in Iteration {x + 1}")
+    for step in range(config.iterations):
+        print(f"in Iteration {step + 1}")
         # iterate to get a best solution (local minima)
         # Todo need config how often long and exact
         # call solver functions
@@ -85,37 +89,46 @@ def solve(instance: Tuple[Point]) -> Solution:
         # evaluate
         scores = [-1] * len(new_solutions)
         # Parallel run
-        processes = list()
-        pipes = list()
-        for y in range(len(new_solutions)):
-            parent, child = Pipe()
-            pipes.append(parent)
-            new_process = Process(target=evaluate_process, args=(new_solutions[y], child,))
-            processes.append(new_process)
-            new_process.start()
-        for y, process in enumerate(processes):
-            scores[y] = pipes[y].recv()
-            process.join()
-            print(f"job {y} is done")
+        with Pool(maxtasksperchild=100)as p:
+            results = p.imap_unordered(evaluate_process, new_solutions, chunksize=1)
+            results = {result[0]: result[1] for result in results}
+
+        # for y in range(len(new_solutions)):
+        #     parent, child = Pipe()
+        #     pipes.append(parent)
+        #     new_process = Process(target=evaluate_process, args=(new_solutions[y], child,))
+        #     processes.append(new_process)
+        #     new_process.start()
+        # for y, process in enumerate(processes):
+        #     scores[y] = pipes[y].recv()
+        #     process.join()
+        #     print(f"job {y} is done")
         # for index, neigboor in enumerate(new_solutions):
         #   scores[index] = Evaluate.naive_imp(neigboor)
         # update check condition
         # "update T"
         # get best result
         print("\n")
+        for pair in results.items():
+            print(f" score:{pair[0]} op: {pair[1]}")
+        # find best score
+        scores = results.keys()
         print_iterative(scores)
         tmp_best_score = min(scores)
+        operation = results[tmp_best_score]
         if tmp_best_score < best_score:
+            # new best_score
             if abs(tmp_best_score - best_score) < 1.5:
+                # new score is too close to best score
                 print("No improvement")
                 # run a new level -> DBSCAN 
                 break
             print(
-                f"New best solution! From {best_score} to {tmp_best_score}\nOperation was {new_solutions[scores.index(tmp_best_score)].get_create_operation()}")
+                f"New best solution! From {best_score} to {tmp_best_score}\nOperation was {operation}")
             best_score = tmp_best_score
-            best_index = scores.index(best_score)
-            run_solution = new_solutions[best_index]
-
+            for sol in new_solutions:
+                if sol.get_create_operation() == operation:
+                    run_solution = sol
         else:
             print("No improvement")
             break
@@ -151,7 +164,7 @@ random.shuffle(combi_IPV)
 combi_IPV = cycle(combi_IPV)
 
 
-def to_3D_view(solution: Solution, correct_solution: Solution = None):
+def to_3D_view(solution: ConcreteSolution, correct_solution: ConcreteSolution = None):
     extra_figures = list()
     # create correct solution
     if correct_solution is not None:
@@ -184,7 +197,7 @@ def save_as_html(name, dir: str = None):
     ipv.save(str(path.absolute()) + name + ".html", makedirs=True, title="3D visual")
 
 
-def complete(final_solution: Solution, correct_solution: Solution = None) -> None:
+def complete(final_solution: ConcreteSolution, correct_solution: ConcreteSolution = None) -> None:
     """
     Will print result in 3D world
     :return: Noting

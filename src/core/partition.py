@@ -121,7 +121,7 @@ class Partition:
         return self.__points_in_partition
 
     def set_points(self, points: List[Point]):
-        self.__points_in_partition = points
+        self.__points_in_partition = [point for point in points]
         self.changed()
 
     def make_valid(self):
@@ -190,12 +190,12 @@ class Partition:
         complete = [point.to_tuple() for point in self]
         return np.array(complete)
 
-    def to_numpy_array_bidirect(self, partition_unumber=-1):
-        temp = self.to_BiPointEncode_list(partition_unumber)
+    def to_numpy_array_bidirect(self, partition_number=-1):
+        temp = self.to_BiPointEncode_list(partition_number)
         return np.array([point.to_tuple() for point in temp])
 
     def to_BiPoint_list(self) -> List[BidirectPoint]:
-        return [BidirectPoint(*point.to_tuple(),index=point.index, partition=self) for point in self]
+        return [BidirectPoint(*point.to_tuple(), index=point.index, partition=self) for point in self]
 
     def to_BiPointEncode_list(self, part_num) -> List[BidiectPointEncode]:
         return [BidiectPointEncode(*point.to_tuple(), index=point.index, partition_number=part_num) for point in self]
@@ -223,6 +223,11 @@ class PlanePartition(Partition):
         self.tension_vector2 = None
         self.coordinates = None
 
+    def update_coordinates(self):
+        new_coords = np.zeros(4, dtype=np.float32)
+        new_coords[:3] = self.normal_vector[:]
+        new_coords[3] = np.sum(new_coords+np.array(self.get_center()))
+        
     def update_normal_vector(self, origin=None):
         def normal_origin(p1: Point, p2: Point) -> Tuple[float, float, float]:
             return p1.vector_product(p2)
@@ -232,11 +237,20 @@ class PlanePartition(Partition):
             vecpoint2 = Point(*(p2 - origin))
             return vecpoint1.vector_product(vecpoint2)
 
+        new_normal = np.array([0.0, 0.0, 0.0], dtype=np.float32)
         func = normal_origin if origin is None else other_origin
-        for triple in combinations(self, 3):
-            vec1 = func(triple[0], triple[1])
-            vec2 = func(triple[0], triple[2])
-            vec3 = func(triple[1], triple[2])
+        triples = combinations(self, 3)
+        size = 0
+        for triple in triples:
+            vec1 = np.array(func(triple[0], triple[1]), dtype=np.float32)
+            vec2 = np.array(func(triple[0], triple[2]), dtype=np.float32)
+            vec3 = np.array(func(triple[1], triple[2]), dtype=np.float32)
+            # set all vec to same direction
+            new_normal += vec1 * -1 if vec1[0] < 0 else vec1
+            new_normal += vec1 * -1 if vec2[0] < 0 else vec2
+            new_normal += vec1 * -1 if vec3[0] < 0 else vec3
+            size += 3
+        self.normal_vector = new_normal / size
 
     def __distance_from_plane(self, point) -> float:
         normal = self.coordinates

@@ -10,7 +10,7 @@ from conf.CubeGeneratorConf import CubeGeneratorConf
 from conf.PointGeneratorConf import PointGeneratorConf
 from conf.planeGeneratorConf import PlaneGeneratorConf
 from core.point import random_Point, Point, GlobalPoint
-from core.solution import Solution, Partition
+from core.solution import ConcreteSolution, Partition
 
 
 class Generator(ABC):
@@ -18,18 +18,18 @@ class Generator(ABC):
     def __init__(self, points=None, solution=None):
         self._created = False
         self.points_from_init = points if points is not None else list()
-        self.solution_from_init = solution if points is not None else Solution.empty_solution()
+        self.solution_from_init = solution if points is not None else ConcreteSolution.empty_solution()
         if points is None:
             self.points = list()
         else:
             self.points = points
         if solution is None:
-            self.correct = Solution.empty_solution()
+            self.correct = ConcreteSolution.empty_solution()
         else:
             self.correct = solution
 
     @abstractmethod
-    def create_point_Instance(self, points: List[Point] = list(), correct: Solution = None) -> Generator:
+    def create_point_Instance(self, points: List[Point] = list(), correct: ConcreteSolution = None) -> Generator:
         pass
 
     def reset_generator(self):
@@ -51,7 +51,7 @@ class Generator(ABC):
         points, sol = self.get_instance_and_correct_solution()
         return generator.create_point_Instance(points, sol)
 
-    def get_instance_and_correct_solution(self) -> Tuple[List[Point], Solution]:
+    def get_instance_and_correct_solution(self) -> Tuple[List[Point], ConcreteSolution]:
         return self.points, self.correct
 
 
@@ -62,7 +62,7 @@ class PointGenerator(Generator):
         self.conf = conf
 
     def create_point_Instance(self, points: List[Point] = None,
-                              correct: Solution = None) -> Generator:
+                              correct: ConcreteSolution = None) -> Generator:
         # TODO fix partitions
         if self._created:
             return self
@@ -83,7 +83,7 @@ class CubeGenerator(Generator):
         super().__init__(points, solution)
         self.conf = conf
 
-    def create_point_Instance(self, points: List[Point] = None, correct: Solution = None) -> Generator:
+    def create_point_Instance(self, points: List[Point] = None, correct: ConcreteSolution = None) -> Generator:
         if self._created:
             return self
         if points is not None:
@@ -150,7 +150,7 @@ class PlaneGenerator(Generator):
         normal_vector = point_vector1.vector_product(point_vector2)
         return normal_vector
 
-    def create_point_Instance(self, points: List[Point] = list(), correct: Solution = None) -> Generator:
+    def create_point_Instance(self, points: List[Point] = list(), correct: ConcreteSolution = None) -> Generator:
         if self._created:
             return self
         if points is not None:
@@ -224,7 +224,7 @@ class SphereGenerator(Generator):
         super().__init__(points, solution)
         self.conf = conf
 
-    def create_point_Instance(self, points: List[Point] = None, correct: Solution = None) -> Generator:
+    def create_point_Instance(self, points: List[Point] = None, correct: ConcreteSolution = None) -> Generator:
         """
 
         :param correct:
