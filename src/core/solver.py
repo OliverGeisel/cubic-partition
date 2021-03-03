@@ -69,7 +69,7 @@ def transform_current_solution(run_solution, param_set):
         new_solutions.append(transformation(run_solution, params))
 
 
-def go_x_steps_back(solution: ConcreteSolution, x: int):
+def go_x_steps_back(solution: Solution, x: int)-> Tuple[Solution,Solution]:
     """
     To escape a stuck solution
     :param solution:
@@ -89,9 +89,10 @@ def go_x_steps_back(solution: ConcreteSolution, x: int):
     return tmp_solution, child
 
 
-def transformation(run_solution: ConcreteSolution, config: SolverConfiguration) -> List[ConcreteSolution]:
+def transformation(run_solution: Solution, config: SolverConfiguration) -> List[ConcreteSolution]:
     """
     Decide between cluster_iteration, add_cluster, reduce_cluster, move_point, move_X_percent,  TODO AND ...
+    :param config:
     :param run_solution:
     :param params:
     :return:
@@ -157,7 +158,7 @@ def cluster_iteration(run_solution: Solution) -> Solution:
     return back
 
 
-def iterate_n_times(solution: ConcreteSolution, n: int = 5):
+def iterate_n_times(solution: Solution, n: int = 5):
     """
     Runs N times the cluster_iteration and omits the history of the intermediate steps. The Old_Solution is the solution that is given by the parameter
     :param solution: The solution, that has to be iterated n times
@@ -167,6 +168,7 @@ def iterate_n_times(solution: ConcreteSolution, n: int = 5):
     """
     iteration = solution
     # Optional TODO can be converted in a work with a copy and don't create a new Object every iteration
+    # Todo stop if no change was done; maybe throw an exception
     for i in range(n):
         iteration = cluster_iteration(iteration)
     iteration.set_old_solution(solution)
@@ -176,7 +178,7 @@ def iterate_n_times(solution: ConcreteSolution, n: int = 5):
     return iteration
 
 
-def split_cluster(run_solution: ConcreteSolution) -> ConcreteSolution:
+def split_cluster(run_solution: Solution) -> Solution:
     """
 
     :param run_solution:
@@ -200,7 +202,7 @@ def split_cluster(run_solution: ConcreteSolution) -> ConcreteSolution:
     return back
 
 
-def add_partition(run_solution: ConcreteSolution, iterations: int, center: Point = None) -> ConcreteSolution:
+def add_partition(run_solution: Solution, iterations: int, center: Point = None) -> Solution:
     """
     Add a random point and iterate n times. The Iterations will be omitted in the hitory
     :param run_solution:
@@ -219,7 +221,7 @@ def add_partition(run_solution: ConcreteSolution, iterations: int, center: Point
     return back
 
 
-def remove_partition(run_solution: ConcreteSolution, iterations: int, partition: Partition = None) -> ConcreteSolution:
+def remove_partition(run_solution: Solution, iterations: int, partition: Partition = None) -> Solution:
     """
     Remove one Partition from the given Solution. If no specific Partition is given the Partition with the highest deviation will be removed
     :param run_solution:
@@ -246,7 +248,7 @@ def remove_partition(run_solution: ConcreteSolution, iterations: int, partition:
     return back
 
 
-def reduce_cluster(run_solution: ConcreteSolution) -> ConcreteSolution:
+def reduce_cluster(run_solution: Solution) -> Solution:
     """
     Select two partitions with smallest (center-) distance and merge them together.
     I.e. The number of partitions is reduced by one
@@ -326,8 +328,6 @@ def move_5_percent(run_solution: ConcreteSolution) -> ConcreteSolution:
 def to_dbscan(run_solution: Solution, radius, min_elements=3) -> DBSolution:
     new_Solution = DBSolution(run_solution.get_instance(), len(run_solution.partitions),
                               run_solution.get_old_solution(), radius, min_elements)
-
-
     # todo use shared mem
     new_partitions = list()
     for part in run_solution.partitions:

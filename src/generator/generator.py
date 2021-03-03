@@ -17,16 +17,16 @@ class Generator(ABC):
 
     def __init__(self, points=None, solution=None):
         self._created = False
-        self.points_from_init = points if points is not None else list()
-        self.solution_from_init = solution if points is not None else ConcreteSolution.empty_solution()
+        self.points_from_init = copy(points) if points is not None else list()
+        self.solution_from_init = deepcopy(solution) if points is not None else ConcreteSolution.empty_solution()
         if points is None:
             self.points = list()
         else:
-            self.points = points
+            self.points = copy(points)
         if solution is None:
             self.correct = ConcreteSolution.empty_solution()
         else:
-            self.correct = solution
+            self.correct = solution.clone()
 
     @abstractmethod
     def create_point_Instance(self, points: List[Point] = list(), correct: ConcreteSolution = None) -> Generator:

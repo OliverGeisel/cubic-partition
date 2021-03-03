@@ -8,7 +8,7 @@ from typing import List, Tuple, Dict, Any
 import numpy as np
 
 from core.point import Point, BidirectPoint, BidiectPointEncode, Bipoint_np
-from core.partition import Partition, PlanePartition
+from core.partition import Partition, PlanePartition, DBPartition
 from core.transformOperation import TransformationOperation as tro, TransformationOperation
 
 
@@ -135,6 +135,10 @@ class Solution(ABC):
         back.set_old_solution(self)
         return back
 
+    @abstractmethod
+    def get_center_map_with_new_Partition(self) -> Dict[Point, Partition]:
+        return {part.get_center(): Partition(part.get_center()) for part in self.partitions}
+
 
 class ConcreteSolution(Solution):
 
@@ -210,13 +214,38 @@ class ConcreteSolution(Solution):
             back += (points_in_partition * sum_all_points) / (num_points * num_partitions)
         return back
 
-    def get_center_map_with_new(self) -> Dict[Point, Partition]:
+    def get_center_map_with_new_Partition(self) -> Dict[Point, Partition]:
         return {part.get_center(): Partition(part.get_center()) for part in self.partitions}
 
     def to_np_encode_list(self):
         return [Bipoint_np(*point.to_tuple()) for point in self.to_BiPointEncode_list()]
 
     def clone(self) -> ConcreteSolution:
+        """
+               Creates a new Solution that is a independent copy of this object. Note that the complete graph is \
+               not copied and is a reference to the single
+               :return:
+               """
+        clone = copy(self)
+        clone.partitions = deepcopy(self.partitions)
+        return clone
+
+
+class DBSolution(Solution):
+
+    def get_center_map_with_new_Partition(self) -> Dict[Point, Partition]:
+        return {part.get_center(): DBPartition(part.get_center()) for part in self.partitions}
+
+    def __init__(self, instance: Tuple[Point], partitions: int = 3, old_solution=None, radius=0.2, min_elements=3,
+                 init_fiunc=default_init):
+        super().__init__(instance, old_solution)
+        self.partitions = list()
+        for part in range(partitions):
+            self.partitions.append(DBPartition(radius=radius, min_elements=min_elements))
+        default_init(self)
+        self.update_centers()
+
+    def clone(self) -> DBSolution:
         """
                Creates a new Solution that is a independent copy of this object. Note that the complete graph is \
                not copied and is a reference to the single
@@ -281,6 +310,9 @@ def default_init_plane(solution: PlaneSolution):
 
 
 class PlaneSolution(Solution):
+
+    def get_center_map_with_new_Partition(self) -> Dict[Point, Partition]:
+        return {part.get_center(): PlanePartition(part.get_center()) for part in self.partitions}
 
     def clone(self) -> PlaneSolution:
         clone = copy(self)

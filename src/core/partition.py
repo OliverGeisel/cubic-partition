@@ -214,6 +214,52 @@ class SubParts:
     pass
 
 
+class DBPartition(Partition):
+
+    def __init__(self, center: Point = Point(), radius: float = .2, min_elements: int = 3):
+        super().__init__(center)
+        self.noise_points = list()
+        self.core_points = list()
+        self.edge_points = list()
+        self.radius = radius
+        self.min_elements = min_elements
+        self.subpartitions = None
+
+    def linking(self):
+        link_map = np.zeros(shape=(len(self.core_points), len(self.core_points)))
+        for current_point_index, core_point in enumerate(self.core_points):
+            for index2, second_core in enumerate(self.core_points):
+                if core_point - second_core < self.radius:
+                    link_map[current_point_index, index2] = 1
+        linked_points = set()
+
+        sub_parts = list()
+        list_of_cores = copy(self.core_points)
+        last_point = 0
+        while len(list_of_cores) > 0 and last_point < len(self.core_points):
+            queque = list()
+            queque.append((list_of_cores[0], last_point))
+            changed = True
+            while changed:
+                changed = False
+                point, current_point_index = queque.pop(0)
+                linked_points.add(point)
+                list_of_cores.remove(point)
+                # find all linked core points // same point not included
+                for other_point_index, other_point in enumerate(
+                        link_map[current_point_index][current_point_index + 1:]):
+                    if other_point == 1:  # if close enough together
+                        last_point = current_point_index + other_point_index + 1
+                        queque.append((self.core_points[last_point], last_point))
+                        changed = True
+            # add 1 to last point for next core point who is not connected to the rest
+            last_point += 1
+            sub_parts.append(linked_points)
+        for point in self.edge_points:
+            pass
+            
+            
+
 class PlanePartition(Partition):
 
     def __init__(self, origin=Point()):
@@ -226,8 +272,8 @@ class PlanePartition(Partition):
     def update_coordinates(self):
         new_coords = np.zeros(4, dtype=np.float32)
         new_coords[:3] = self.normal_vector[:]
-        new_coords[3] = np.sum(new_coords+np.array(self.get_center()))
-        
+        new_coords[3] = np.sum(new_coords + np.array(self.get_center()))
+
     def update_normal_vector(self, origin=None):
         def normal_origin(p1: Point, p2: Point) -> Tuple[float, float, float]:
             return p1.vector_product(p2)

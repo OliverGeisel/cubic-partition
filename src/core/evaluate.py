@@ -7,7 +7,7 @@ from multiprocessing import Pool, shared_memory
 from typing import List
 
 from core.point import Point, BidirectPoint
-from core.solution import Solution, Partition, PlaneSolution
+from core.solution import ConcreteSolution, Partition, PlaneSolution, Solution
 
 import numpy as np
 
@@ -159,24 +159,8 @@ def naive_imp(solution: Solution, cost=cost_default, cost_neg=cost_neg_default):
 
 
 def calc(triple):
-    p1 = triple[0]
-    p2 = triple[1]
-    p3 = triple[2]
-    dist_map = triple[3]
-    size = int(math.sqrt(len(dist_map)))
-    x1 = p1._partition is p2._partition
-    x2 = p1._partition is p3._partition
-    x3 = p2._partition is p3._partition
-    x_sum = x1 * x2 * x3
-    if dist_map is None:
-        dist1 = p1 - p2
-        dist2 = p1 - p3
-        dist3 = p2 - p3
-    else:
-        dist1 = dist_map[p1.index * size + p2.index]
-        dist2 = dist_map[p1.index * size + p3.index]
-        dist3 = dist_map[p2.index * size + p3.index]
-    return (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+    pass
+
 
 def calc_p(triple):
     p1 = triple[0]
@@ -205,18 +189,37 @@ def naive_imp_fast(solution: Solution, parallel=False):
     # calc point penalty
     three_points = combinations(solution.to_BiPoint_list(), 3)
     # first version of parallel process
-    distance_map = shared_memory.SharedMemory(name="distance_map")
-    #three_points = [(*triple, distance_map.buf) for triple in three_points]
+    shm = shared_memory.SharedMemory(name="distance_map")
+    distance_map = np.ndarray((solution.size, solution.size), dtype=np.float32, buffer=shm.buf)
+    # three_points = [(*triple, distance_map.buf) for triple in three_points]
     # TODO find race condition and solve dist_map
     if parallel:
-        with Pool() as pool:
-            results = pool.map(calc_p, three_points)
+        with Pool(maxtasksperchild=100) as pool:
+            results = pool.imap(calc_p, three_points, chunksize=solution.size)
         result = sum(results)
     else:
-        three_points = [(*triple, distance_map.buf) for triple in three_points]
-        result = sum(map(calc, three_points))
+        for triple in three_points:
+            p1 = triple[0]
+            p2 = triple[1]
+            p3 = triple[2]
+
+            x1 = p1._partition is p2._partition
+            x2 = p1._partition is p3._partition
+            x3 = p2._partition is p3._partition
+            x_sum = x1 * x2 * x3
+            if distance_map is None:
+                dist1 = p1 - p2
+                dist2 = p1 - p3
+                dist3 = p2 - p3
+            else:
+                dist1 = distance_map[p1.index][p2.index]
+                dist2 = distance_map[p1.index][p3.index]
+                dist3 = distance_map[p2.index][p3.index]
+            result+= (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+
+        #result = sum(map(calc, three_points))
     # add += (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
-    distance_map.close()
+    shm.close()
     result /= len(solution)
     result *= len(solution.partitions)
     # calc partition penalty

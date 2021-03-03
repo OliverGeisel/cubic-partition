@@ -24,12 +24,12 @@ from core.solver import ConcreteSolution, transformation
 from helper.shortcuts import print_iterative
 
 
-def generate_instance() -> Tuple[List[Point], ConcreteSolution]:
+def generate_instance() -> Tuple[List[Point], Solution]:
     generator = SphereGenerator()
     return generator.create_point_Instance().get_instance_and_correct_solution()
 
 
-def evaluate_process(solution: ConcreteSolution) -> Tuple[float, TransformationOperation]:
+def evaluate_process(solution: Solution) -> Tuple[float, TransformationOperation]:
     start = time.perf_counter()
     result = evaluate.naive_imp_fast(solution, False)
     end = time.perf_counter()
@@ -43,12 +43,17 @@ def set_global_indexes(solution):
         point.index = count
         count += 1
 
-def second_level(solution:Solution):
+
+def second_level(solution: Solution, config: SolverConfiguration):
+    # run_solution is not complete
+    run_solutin = solver.to_dbscan(solution, config.radius, config.min_elements)
+    # TODO
+
+    # evaluate db
 
 
 def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfiguration.default()) -> ConcreteSolution:
-    iterations = 5  # simulated annealing parameter T
-    check_condition = True
+    # check_condition = True
     evaluator = evaluate.Evaluation(None)
     # create random solution
     if config.multiple_start:
@@ -168,7 +173,7 @@ random.shuffle(combi_IPV)
 combi_IPV = cycle(combi_IPV)
 
 
-def to_3D_view(solution: ConcreteSolution, correct_solution: ConcreteSolution = None):
+def to_3D_view(solution: Solution, correct_solution: Solution = None):
     extra_figures = list()
     # create correct solution
     if correct_solution is not None:
@@ -189,7 +194,6 @@ def to_3D_view(solution: ConcreteSolution, correct_solution: ConcreteSolution = 
         ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
     ipv.pylab.xyzlim(0, 11)
     ipv.current.container.children = list(ipv.current.container.children) + extra_figures
-    ipv.show()
 
 
 def save_as_html(name, dir: str = None):
@@ -198,10 +202,10 @@ def save_as_html(name, dir: str = None):
     # if not path.is_dir():
     #     raise Exception("The given directory is no directory")
     # Todo Check if name end with .html
-    ipv.save(str(path.absolute()) + name + ".html", makedirs=True, title="3D visual")
+    ipv.save(str(path.absolute())+"/" + name + ".html", makedirs=True, title="3D visual")
 
 
-def complete(final_solution: ConcreteSolution, correct_solution: ConcreteSolution = None) -> None:
+def complete(final_solution: Solution, correct_solution: Solution = None) -> None:
     """
     Will print result in 3D world
     :return: Noting
@@ -226,11 +230,12 @@ def complete(final_solution: ConcreteSolution, correct_solution: ConcreteSolutio
     ipv.current.containers.clear()
     ipv.current.figures.clear()
     to_3D_view(final_solution, correct_solution)
+    ipv.show()
     # save in a separate file
-    save_as_html("final")
+    #save_as_html("final")
 
     # destroy 3D views
-    ipv.clear()
+    #ipv.clear()
 
 
 def run():
