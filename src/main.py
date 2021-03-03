@@ -15,6 +15,7 @@ import ipywidgets as widgets
 
 import helper.converter as convert
 from conf.SolverConfiguration import SolverConfiguration
+from core.solution import Solution
 from core.transformOperation import TransformationOperation
 from generator.generator import SphereGenerator
 from core import solver, evaluate
@@ -41,6 +42,8 @@ def set_global_indexes(solution):
     for point in solution.get_instance():
         point.index = count
         count += 1
+
+def second_level(solution:Solution):
 
 
 def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfiguration.default()) -> ConcreteSolution:
@@ -121,7 +124,9 @@ def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfigurat
             if abs(tmp_best_score - best_score) < 1.5:
                 # new score is too close to best score
                 print("No improvement")
-                # run a new level -> DBSCAN 
+                if config.second_step:
+                    run_solution = second_level(run_solution)
+                    # run a new level -> DBSCAN
                 break
             print(
                 f"New best solution! From {best_score} to {tmp_best_score}\nOperation was {operation}")
@@ -130,9 +135,8 @@ def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfigurat
                 if sol.get_create_operation() == operation:
                     run_solution = sol
         else:
-            print("No improvement")
+            print("No improvement! End of solving")
             break
-        # pass
     return run_solution
 
 
