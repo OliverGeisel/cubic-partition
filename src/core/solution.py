@@ -46,7 +46,6 @@ class Solution(ABC):
 
     def change_instance(self, new_graph, new_default: bool = False):
         self.__complete_graph = new_graph
-        self.size = len(new_graph)
         for part in self.partitions:
             part.changed()
         if new_default:
@@ -209,7 +208,7 @@ class ConcreteSolution(Solution):
     def get_value(self) -> float:
         back = 0
         num_partitions = len(self.partitions)
-        num_points = self.size
+        num_points = len(self)
 
         for partition in self.partitions:
             points_in_partition = len(partition)
@@ -337,6 +336,7 @@ def default_init_plane(solution: PlaneSolution):
         else:
             normal_vectors = solution.get_normal_and_tension_vectors()
             variances = dict()
+            # todo look if vector is 0,0,0 -> no normal vector
             for index, vector in enumerate(normal_vectors):
                 test_normal = point.vector_product(Point(*vector[1]))
                 test_normal = np.array(Point(*test_normal).get_normalized_vector())
@@ -417,8 +417,11 @@ class PlaneSolution(Solution):
             self.__assign_to_best_part(point)
 
     def __assign_to_best_part(self, point: Point):
+        for part in self.partitions:
+            part.update_center()
         best_part = None
         min_variance = math.inf
+        # Todo look if normal vector is not 0,0,0
         for index, vector in enumerate(self.get_normal_and_tension_vectors()):
             normal_vector_abs = math.sqrt(np.square(vector[0]).sum())
             normal_vector = vector[0] / normal_vector_abs
@@ -428,7 +431,8 @@ class PlaneSolution(Solution):
             new_normal = np.array(new_normal) if new_normal[0] >= 0 else np.array(new_normal) * -1
             if np.abs(new_normal - normal_vector).sum() < min_variance:
                 best_part = self.partitions[index]
-        best_part.add(point)
+        if best_part is not None:
+            best_part.add(point)
 
     def sort_partitions(self):
         """Sorts all Partitions in the solution in ascending order. So nearest Point to center is at index\

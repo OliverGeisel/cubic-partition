@@ -53,6 +53,7 @@ def second_level(solution: Solution, best_score, config: SolverConfiguration):
     result = evaluate.naive_imp_fast(run_solutin)
     return run_solutin, result
 
+
 def iteration_for_solution(run_solution: Solution, best_score, subspaceclustering: bool, config: SolverConfiguration)-> Tuple[Solution, float]:
     for step in range(config.iterations):
         print(f"in Iteration {step + 1}")
@@ -118,8 +119,7 @@ def iteration_for_solution(run_solution: Solution, best_score, subspaceclusterin
 
 def solve(instance: Tuple[Point], subspaceclustering: bool,
           config: SolverConfiguration = SolverConfiguration.default()) -> Solution:
-    # check_condition = True
-    evaluator = evaluate.Evaluation(None)
+    # evaluator = evaluate.Evaluation(None)
     # create random solution
     if config.multiple_start:
         start_solutions = [solver.first_solution(instance, subspaceclustering) for x in range(10)]
@@ -138,7 +138,10 @@ def solve(instance: Tuple[Point], subspaceclustering: bool,
         all_dist.append(new_line)
     distance_map = np.array(all_dist, dtype=np.float32)
     # write into shared for access over processes and all functions
-    shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map")
+    try:
+        shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map")
+    except :
+        shm = shared_memory.SharedMemory(name="distance_map")
     tmp = np.ndarray(distance_map.shape, dtype=distance_map.dtype, buffer=shm.buf)
     tmp[:] = distance_map[:]  # Copy the original data into shared memory
 

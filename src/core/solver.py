@@ -8,7 +8,7 @@ from typing import Tuple, List
 import numpy as np
 
 from conf.SolverConfiguration import SolverConfiguration
-from core.partition import DBPartition
+from core.partition import DBPartition, PlanePartition
 from core.point import Point, random_Point
 from core.solution import ConcreteSolution, Partition, Solution, DBSolution, PlaneSolution
 from core.transformOperation import TransformationOperation as tro, TransformationOperation
@@ -85,7 +85,7 @@ def transformation(run_solution: Solution, config: SolverConfiguration) -> List[
         # iterate
         neighborhood.append(iterate_n_times(run_solution, config.sub_iterations))
         # add
-        neighborhood.append((add_partition(run_solution, config.sub_iterations, random_Point())))
+        # neighborhood.append((add_partition(run_solution, config.sub_iterations, random_Point())))
         # remove
         neighborhood.append(remove_partition(run_solution, config.sub_iterations))
     if config.trans_level >= 2:
@@ -186,11 +186,13 @@ def split_cluster(run_solution: Solution) -> Solution:
         if var > max_var:
             max_var = var
             pos = index
-    max_cluster = back.partitions[pos]
-    cluster1, cluster2 = max_cluster.split_to_two()
-    back.partitions.remove(max_cluster)
-    back.partitions.append(cluster1)
-    back.partitions.append(cluster2)
+    if len(back.partitions) != 0:
+        max_cluster = back.partitions[pos]
+        cluster1, cluster2 = max_cluster.split_to_two()
+        back.partitions.remove(max_cluster)
+        back.partitions.append(cluster1)
+        back.partitions.append(cluster2)
+    back.remove_empty_partition()
     back.set_create_operation(tro.SPLIT)
     return back
 
@@ -206,7 +208,7 @@ def add_partition(run_solution: Solution, iterations: int, center: Point = None)
     back = run_solution.new_with_self_as_old()
     if center is None:
         center = random_Point()
-    new_Partition = Partition(center)
+    new_Partition = Partition(center) if isinstance(run_solution, ConcreteSolution) else PlanePartition(center)
     back.partitions.append(new_Partition)
     back = iterate_n_times(back, iterations)
     back.set_old_solution(run_solution)
@@ -238,7 +240,8 @@ def remove_partition(run_solution: Solution, iterations: int, partition: Partiti
             if dev > max_deviation:
                 max_deviation = dev
                 partition_to_remove = part
-        back.partitions.remove(partition_to_remove)
+        if partition_to_remove is not None:
+            back.partitions.remove(partition_to_remove)
     back = iterate_n_times(back, iterations)
     back.set_old_solution(run_solution)
     back.set_create_operation(tro.REMOVE)
@@ -265,14 +268,14 @@ def reduce_cluster(run_solution: Solution) -> Solution:
             min_dist = dist
             cluster_to_reduce = part
 
-    new_part = Partition()
+    new_part = Partition() if isinstance(run_solution, ConcreteSolution) else PlanePartition()
     new_part.set_points(list(chain.from_iterable(cluster_to_reduce)))
     new_part.changed()
     new_part.make_valid()
-
-    back.partitions.remove(cluster_to_reduce[0])
-    back.partitions.remove(cluster_to_reduce[1])
-    back.partitions.append(new_part)
+    if len(cluster_to_reduce):
+        back.partitions.remove(cluster_to_reduce[0])
+        back.partitions.remove(cluster_to_reduce[1])
+        back.partitions.append(new_part)
     back.set_create_operation(tro.REDUCE)
     return back
 

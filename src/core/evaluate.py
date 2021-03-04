@@ -184,17 +184,17 @@ def calc_p(triple):
     return (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
 
 
-def naive_imp_fast(solution: Solution, parallel=False)->float:
+def naive_imp_fast(solution: Solution, parallel=False) -> float:
     result = 0.0
     # calc point penalty
     three_points = combinations(solution.to_BiPoint_list(), 3)
     shm = shared_memory.SharedMemory(name="distance_map")
-    distance_map = np.ndarray((solution.size, solution.size), dtype=np.float32, buffer=shm.buf)
+    distance_map = np.ndarray((len(solution), len(solution)), dtype=np.float32, buffer=shm.buf)
     # three_points = [(*triple, distance_map.buf) for triple in three_points]
     # TODO find race condition and solve dist_map
     if parallel:
         with Pool(maxtasksperchild=100) as pool:
-            results = pool.imap(calc_p, three_points, chunksize=solution.size)
+            results = pool.imap(calc_p, three_points, chunksize=len(solution))
         result = sum(results)
     else:
         for triple in three_points:

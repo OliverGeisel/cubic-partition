@@ -135,7 +135,7 @@ class Point:
     def get_normalized_vector(self) -> Tuple[float, float, float]:
         absolute = abs(self)
         if absolute <= 0.0:
-            raise Exception(f"Absolute of point {str(self)} is zero")
+            return 0, 0, 0
         x = self.x / absolute
         y = self.y / absolute
         z = self.z / absolute
