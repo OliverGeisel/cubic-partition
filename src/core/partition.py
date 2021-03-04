@@ -210,10 +210,6 @@ class Subpartition(Partition):
         pass
 
 
-class SubParts:
-    pass
-
-
 class DBPartition(Partition):
 
     def __init__(self, center: Point = Point(), radius: float = .2, min_elements: int = 3):
@@ -255,10 +251,35 @@ class DBPartition(Partition):
             # add 1 to last point for next core point who is not connected to the rest
             last_point += 1
             sub_parts.append(linked_points)
+        assign_edge_points = {}
         for point in self.edge_points:
-            pass
-            
-            
+            restart = False
+            for sub_part_index, sub_part in enumerate(sub_parts):
+                for center in sub_part:
+                    if point - center < self.radius:
+                        assign_edge_points[point] = sub_part_index
+                        restart = True
+                        break
+                if restart:
+                    break
+        for point, index in assign_edge_points.items():
+            sub_parts[index].add(point)
+        self.subpartitions = sub_parts
+
+    def split(self) -> List[Partition]:
+        """
+        Splits the partition to the new sub partitons depending on the dbscan
+        :return:
+        """
+        self.linking()
+        back = list()
+        for part in self.subpartitions:
+            new_part = Partition()
+            for point in part:
+                new_part.add(point)
+            back.append(new_part)
+        return back
+
 
 class PlanePartition(Partition):
 
@@ -293,10 +314,45 @@ class PlanePartition(Partition):
             vec3 = np.array(func(triple[1], triple[2]), dtype=np.float32)
             # set all vec to same direction
             new_normal += vec1 * -1 if vec1[0] < 0 else vec1
-            new_normal += vec1 * -1 if vec2[0] < 0 else vec2
-            new_normal += vec1 * -1 if vec3[0] < 0 else vec3
+            new_normal += vec2 * -1 if vec2[0] < 0 else vec2
+            new_normal += vec3 * -1 if vec3[0] < 0 else vec3
             size += 3
-        self.normal_vector = new_normal / size
+        if size != 0:
+            new_normal /= size
+        new_vec_abs = np.sqrt(np.square(new_normal).sum())
+        self.normal_vector = new_normal / (new_vec_abs if new_vec_abs > 0 else 1)
+
+    def __derivation_to_normal_vector_and_t1(self, point: Point):
+        new_vector = point.vector_product(Point(*self.tension_vector1))
+        new_vector = Point(*new_vector).get_normalized_vector()
+        new_vector = np.array(new_vector) if new_vector[0] >= 1 else np.array(new_vector) * -1
+        return np.abs(new_vector - self.normal_vector).sum()
+
+    def get_most_distant_point(self) -> Point:
+        # Todo improve
+        max_point = None
+        max_dist = 0
+        for p in self:
+            dist = self.__derivation_to_normal_vector_and_t1(p)
+            if dist > max_dist:
+                max_dist = dist
+                max_point = p
+        return max_point
+
+    def split_to_two(self) -> Tuple[Partition, Partition]:
+        # Todo factor for new center depending on distance to max point
+
+        new_part1 = PlanePartition()
+        new_part2 = PlanePartition()
+        std_deviation = self.get_standard_deviation()
+        for p in self:
+            if self.__derivation_to_normal_vector_and_t1(p) < std_deviation:
+                new_part1.add(p)
+            else:
+                new_part2.add(p)
+        new_part2.make_valid()
+        new_part1.make_valid()
+        return new_part1, new_part2
 
     def __distance_from_plane(self, point) -> float:
         normal = self.coordinates
@@ -306,6 +362,9 @@ class PlanePartition(Partition):
 
     def get_normal_vector(self):
         return self.normal_vector
+
+    def get_normal_and_tension_vectors(self):
+        return self.normal_vector, self.tension_vector1, self.tension_vector2
 
     def __update_standard_deviation(self):
         deviation = 0.0
@@ -319,5 +378,6 @@ class PlanePartition(Partition):
         return True
 
     def update_center(self) -> bool:
+        self.update_normal_vector()
         self.__invalid_center = False
         return True

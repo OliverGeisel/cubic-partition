@@ -16,3 +16,6 @@ class SolverConfiguration:
         self.sub_iterations = 5
         self.multiple_start = multiple_start
         self.num_start_partitions = 2
+        self.parallel_eval = False
+        # planeconfig
+        self.complete_plane = False

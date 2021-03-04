@@ -123,7 +123,7 @@ class Point:
     def __str__(self):
         return f"Point: x= {self.x} y= {self.y} z= {self.z}"
 
-    def to_tuple(self):
+    def to_tuple(self) -> Tuple[float, float, float]:
         return self.x, self.y, self.z
 
     def vector_product(self, other: Point) -> Tuple[float, float, float]:
@@ -134,12 +134,14 @@ class Point:
 
     def get_normalized_vector(self) -> Tuple[float, float, float]:
         absolute = abs(self)
+        if absolute <= 0.0:
+            raise Exception(f"Absolute of point {str(self)} is zero")
         x = self.x / absolute
         y = self.y / absolute
         z = self.z / absolute
         return x, y, z
 
-    def get_normalized_point(self):
+    def get_normalized_point(self) -> Point:
         return Point(*self.get_normalized_vector())
 
 
@@ -158,7 +160,7 @@ class GlobalPoint(Point):
 
 
 class BidirectPoint(GlobalPoint):
-    def __init__(self, x=0.0, y=0.0, z=0.0, index=-1 ,partition=None):
+    def __init__(self, x=0.0, y=0.0, z=0.0, index=-1, partition=None):
         super().__init__(x, y, z)
         self._partition = partition
         self.index = index
@@ -171,7 +173,7 @@ class BidirectPoint(GlobalPoint):
 
 
 class BidiectPointEncode(GlobalPoint):
-    def __init__(self, x=0.0, y=0.0, z=0.0, index = -1, partition_number=-1):
+    def __init__(self, x=0.0, y=0.0, z=0.0, index=-1, partition_number=-1):
         super().__init__(x, y, z)
         self._partition = partition_number
         self.index = index

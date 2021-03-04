@@ -1,8 +1,7 @@
-import os
 import random
 import time
-from itertools import product, repeat, cycle
-from multiprocessing import Process, Pipe, Array, shared_memory, Pool
+from itertools import product, cycle
+from multiprocessing import shared_memory, Pool
 from pathlib import Path
 from typing import List, Tuple
 
@@ -52,67 +51,30 @@ def second_level(solution: Solution, config: SolverConfiguration):
     # evaluate db
 
 
-def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfiguration.default()) -> ConcreteSolution:
-    # check_condition = True
-    evaluator = evaluate.Evaluation(None)
-    # create random solution
-    if config.multiple_start:
-        start_solutions = [solver.first_solution(instance, x) for x in range(10)]
-        # Todo implement multiple start and evaluate and get best
-        best = None
-        run_solution = best
-    else:
-        run_solution = solver.first_solution(instance, 2)
-    # calc all distances
-    set_global_indexes(run_solution)
-    all_dist = list()
-    for p1 in run_solution.get_instance():
-        new_line = list()
-        for p2 in run_solution.get_instance():
-            new_line.append(p1 - p2)
-        all_dist.append(new_line)
-    distance_map = np.array(all_dist, dtype=np.float32)
-    # write into shared for access over processes and all functions
-    shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map")
-    tmp = np.ndarray(distance_map.shape, dtype=distance_map.dtype, buffer=shm.buf)
-    tmp[:] = distance_map[:]  # Copy the original data into shared memory
-
-    # iterate initial
-    run_solution = solver.iterate_n_times(run_solution, 10)
-    start = time.perf_counter()
-
-    best_score = evaluate.naive_imp_fast(run_solution, False)
-    end = time.perf_counter()
-    print(f"Time init: {end - start}")
-    # evaluate
-    # evaluated_value = evaluator.eval(run_solution)
-    print(f"initial value: {best_score}")
+def iteration_for_solution(run_solution: Solution, best_score, subspaceclustering: bool, config: SolverConfiguration)-> Tuple[Solution, float]:
     for step in range(config.iterations):
         print(f"in Iteration {step + 1}")
         # iterate to get a best solution (local minima)
-        # Todo need config how often long and exact
-        # call solver functions
-        new_solutions = transformation(run_solution)
-        # reduce
+        if subspaceclustering:
+            tmp_transform = run_solution.clone()
+            tmp_transform.reduce_radius(0.2)
+            new_solutions = transformation(tmp_transform, config)
+        else:
+            new_solutions = transformation(run_solution, config)
         # evaluate
-        scores = [-1] * len(new_solutions)
         # Parallel run
-        with Pool(maxtasksperchild=100)as p:
-            results = p.imap_unordered(evaluate_process, new_solutions, chunksize=1)
-            results = {result[0]: result[1] for result in results}
-
-        # for y in range(len(new_solutions)):
-        #     parent, child = Pipe()
-        #     pipes.append(parent)
-        #     new_process = Process(target=evaluate_process, args=(new_solutions[y], child,))
-        #     processes.append(new_process)
-        #     new_process.start()
-        # for y, process in enumerate(processes):
-        #     scores[y] = pipes[y].recv()
-        #     process.join()
-        #     print(f"job {y} is done")
-        # for index, neigboor in enumerate(new_solutions):
-        #   scores[index] = Evaluate.naive_imp(neigboor)
+        if config.parallel_eval:
+            with Pool(maxtasksperchild=100)as p:
+                results = p.imap_unordered(evaluate_process, new_solutions, chunksize=1)
+                results = {result[0]: result[1] for result in results}
+        else:
+            results = {}
+            for new_solution in new_solutions:
+                start = time.perf_counter()
+                result = evaluate.naive_imp_fast(new_solution, False)
+                end = time.perf_counter()
+                print(f"Time: {end - start} : Operation {new_solution.get_create_operation()}")
+                results[result] = new_solution.get_create_operation()
         # update check condition
         # "update T"
         # get best result
@@ -142,7 +104,54 @@ def solve(instance: Tuple[Point], config: SolverConfiguration = SolverConfigurat
         else:
             print("No improvement! End of solving")
             break
-    return run_solution
+    if subspaceclustering:
+        if config.complete_plane:
+            run_solution.complete()
+        else:
+            run_solution.not_assigned_points_to_partition()
+    return run_solution, best_score
+
+
+def solve(instance: Tuple[Point], subspaceclustering: bool,
+          config: SolverConfiguration = SolverConfiguration.default()) -> Solution:
+    # check_condition = True
+    evaluator = evaluate.Evaluation(None)
+    # create random solution
+    if config.multiple_start:
+        start_solutions = [solver.first_solution(instance, subspaceclustering) for x in range(10)]
+        # Todo implement multiple start and evaluate and get best
+        best = None
+        run_solution = best
+    else:
+        run_solution = solver.first_solution(instance, subspaceclustering, 2)
+    # calc all distances
+    set_global_indexes(run_solution)
+    all_dist = list()
+    for p1 in run_solution.get_instance():
+        new_line = list()
+        for p2 in run_solution.get_instance():
+            new_line.append(p1 - p2)
+        all_dist.append(new_line)
+    distance_map = np.array(all_dist, dtype=np.float32)
+    # write into shared for access over processes and all functions
+    shm = shared_memory.SharedMemory(create=True, size=distance_map.nbytes, name="distance_map")
+    tmp = np.ndarray(distance_map.shape, dtype=distance_map.dtype, buffer=shm.buf)
+    tmp[:] = distance_map[:]  # Copy the original data into shared memory
+
+    # iterate initial
+    run_solution = solver.iterate_n_times(run_solution, 10)
+    start = time.perf_counter()
+    # evaluate first
+    best_score = evaluate.naive_imp_fast(run_solution, False)
+    end = time.perf_counter()
+    print(f"Time init: {end - start}")
+    print(f"initial value: {best_score}")
+
+    best_solution, best_score = iteration_for_solution(run_solution, best_score, subspaceclustering, config)
+    return best_solution
+
+
+###### Output part ##########
 
 
 list_of_colors = ["#ff0000",  # red
@@ -178,7 +187,7 @@ def to_3D_view(solution: Solution, correct_solution: Solution = None):
     # create correct solution
     if correct_solution is not None:
         figure_correct = ipv.figure("correct")
-        ipv.pylab.xyzlim(0, 11)
+        ipv.pylab.xyzlim(-11, 11)
         for part in correct_solution.partitions:
             temp = combi_IPV.__next__()
             ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
@@ -192,7 +201,7 @@ def to_3D_view(solution: Solution, correct_solution: Solution = None):
     for part in solution.partitions:
         temp = combi_IPV.__next__()
         ipv.scatter(*convert.partition_to_IpyVolume(part), marker=temp[1], color=temp[0])
-    ipv.pylab.xyzlim(0, 11)
+    ipv.pylab.xyzlim(-11, 11)
     ipv.current.container.children = list(ipv.current.container.children) + extra_figures
 
 
@@ -202,10 +211,11 @@ def save_as_html(name, dir: str = None):
     # if not path.is_dir():
     #     raise Exception("The given directory is no directory")
     # Todo Check if name end with .html
-    ipv.save(str(path.absolute())+"/" + name + ".html", makedirs=True, title="3D visual")
+    ipv.save(str(path.absolute()) + "/" + name + ".html", makedirs=True, title="3D visual")
 
 
-def complete(final_solution: Solution, correct_solution: Solution = None) -> None:
+def complete(final_solution: Solution, correct_solution: Solution = None, save: bool = False, name: str = "result",
+             dir=None) -> None:
     """
     Will print result in 3D world
     :return: Noting
@@ -232,17 +242,20 @@ def complete(final_solution: Solution, correct_solution: Solution = None) -> Non
     to_3D_view(final_solution, correct_solution)
     ipv.show()
     # save in a separate file
-    #save_as_html("final")
+    if save:
+        save_as_html(name, dir)
 
     # destroy 3D views
-    #ipv.clear()
+    ipv.clear()
 
+
+### normal execute ###
 
 def run():
     # generate instance  set of 3D points
     instance, correct_colution = generate_instance()
     # find best solution for cubic partition problem
-    solution = solve(instance)
+    solution = solve(instance, True)
     # print result
     complete(solution, correct_colution)
 

@@ -190,6 +190,7 @@ class PlaneGenerator(Generator):
         tmp = list(self.conf.origins)
         tmp.append((origin, first_point, second_point))
         self.conf.origins = tuple(tmp)
+        self.conf.planes += 1
         self.reset_generator()
 
 

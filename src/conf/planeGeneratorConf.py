@@ -17,4 +17,4 @@ class PlaneGeneratorConf(object):
     @staticmethod
     def default_Conf():
         random_planes_from_origin = (Point(), None, None)
-        return PlaneGeneratorConf(1 << 8, 2, 0.0, (-10, 10), random_planes_from_origin)
+        return PlaneGeneratorConf(1 << 8, 1, 0.0, (-10, 10), random_planes_from_origin)

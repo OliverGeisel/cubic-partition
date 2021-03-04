@@ -188,7 +188,6 @@ def naive_imp_fast(solution: Solution, parallel=False):
     result = 0.0
     # calc point penalty
     three_points = combinations(solution.to_BiPoint_list(), 3)
-    # first version of parallel process
     shm = shared_memory.SharedMemory(name="distance_map")
     distance_map = np.ndarray((solution.size, solution.size), dtype=np.float32, buffer=shm.buf)
     # three_points = [(*triple, distance_map.buf) for triple in three_points]
@@ -215,10 +214,7 @@ def naive_imp_fast(solution: Solution, parallel=False):
                 dist1 = distance_map[p1.index][p2.index]
                 dist2 = distance_map[p1.index][p3.index]
                 dist3 = distance_map[p2.index][p3.index]
-            result+= (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
-
-        #result = sum(map(calc, three_points))
-    # add += (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
+            result += (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
     shm.close()
     result /= len(solution)
     result *= len(solution.partitions)

@@ -10,15 +10,8 @@ import numpy as np
 from conf.SolverConfiguration import SolverConfiguration
 from core.partition import DBPartition
 from core.point import Point, random_Point
-from core.solution import ConcreteSolution, Partition, Solution, DBSolution
-from core.transformOperation import TransformationOperation  as tro, TransformationOperation
-
-"""
-def nearest_init(solution):
-    solution.partitions
-
-    pass
-"""
+from core.solution import ConcreteSolution, Partition, Solution, DBSolution, PlaneSolution
+from core.transformOperation import TransformationOperation as tro, TransformationOperation
 
 """
 Level of operation- Concept:
@@ -45,7 +38,7 @@ Level of operation- Concept:
 """
 
 
-class Parameter(object):
+class Parameter:
     """
         possible parameters to check
         clusters
@@ -59,17 +52,7 @@ class Parameter(object):
         self.x = 0
 
 
-# generate multiple solutions from current with different params neighbours
-def transform_current_solution(run_solution, param_set):
-    # run multiple transformations for current solution
-    new_solutions = list()
-    for params in param_set:
-        # Todo parallelize
-        # Note: copy needed
-        new_solutions.append(transformation(run_solution, params))
-
-
-def go_x_steps_back(solution: Solution, x: int)-> Tuple[Solution,Solution]:
+def go_x_steps_back(solution: Solution, x: int) -> Tuple[Solution, Solution]:
     """
     To escape a stuck solution
     :param solution:
@@ -89,7 +72,7 @@ def go_x_steps_back(solution: Solution, x: int)-> Tuple[Solution,Solution]:
     return tmp_solution, child
 
 
-def transformation(run_solution: Solution, config: SolverConfiguration) -> List[ConcreteSolution]:
+def transformation(run_solution: Solution, config: SolverConfiguration) -> List[Solution]:
     """
     Decide between cluster_iteration, add_cluster, reduce_cluster, move_point, move_X_percent,  TODO AND ...
     :param config:
@@ -120,8 +103,9 @@ def transformation(run_solution: Solution, config: SolverConfiguration) -> List[
     # create all neighbors
 
 
-def advanced_transformation(run_solution: ConcreteSolution, options: List[Tuple[TransformationOperation,]]):
+def advanced_transformation(run_solution: Solution, options: List[Tuple[TransformationOperation,]]):
     back = list()
+    #Todo implement
     for option in options:
         if True:
             pass
@@ -136,24 +120,31 @@ def cluster_iteration(run_solution: Solution) -> Solution:
     :param run_solution: Original Solution
     :return: the new Solution with new assigned points and updated centers
     """
-    back = ConcreteSolution.empty_solution()
+    back = run_solution.empty_solution()
     back.set_old_solution(run_solution)
     back.change_instance(run_solution.get_instance())
     center_map = run_solution.get_center_map_with_new_Partition()
     # TODO parallelize
-    for point in run_solution.get_instance():
-        min_dist = math.inf
-        min_dist_center = None
-        # get smallest
-        for center in center_map.keys():
-            new_dist = point - center
-            if new_dist < min_dist:
-                min_dist = new_dist
-                min_dist_center = center
-        # assign point to matching partition
-        new_partition = center_map[min_dist_center]
-        new_partition.add(point)
-    back.partitions = list(center_map.values())
+    if isinstance(back, PlaneSolution):
+        back = run_solution.clone()
+        # remove all Points
+        for part in back.partitions:
+            part.get_points().clear()
+        back.assign_all(back.get_instance())
+    else:
+        for point in run_solution.get_instance():
+            min_dist = math.inf
+            min_dist_center = None
+            # get smallest
+            for center in center_map.keys():
+                new_dist = point - center
+                if new_dist < min_dist:
+                    min_dist = new_dist
+                    min_dist_center = center
+            # assign point to matching partition
+            new_partition = center_map[min_dist_center]
+            new_partition.add(point)
+        back.partitions = list(center_map.values())
     back.update_centers()
     return back
 
@@ -231,6 +222,10 @@ def remove_partition(run_solution: Solution, iterations: int, partition: Partiti
     """
     back = run_solution.new_with_self_as_old()
     back.remove_empty_partition()
+    if len(run_solution.partitions) == 1:
+        back.set_old_solution(run_solution)
+        back.set_create_operation(tro.REMOVE)
+        return back
     if partition is not None:
         back.partitions.remove(partition)
     else:
@@ -287,7 +282,7 @@ def move_point(point: Point, origin: Partition, destination: Partition):
     destination.add(point)
 
 
-def move_x_percent(run_solution: ConcreteSolution, x: int) -> ConcreteSolution:
+def move_x_percent(run_solution: Solution, x: int) -> Solution:
     """
 
     :param run_solution:
@@ -321,7 +316,7 @@ def move_x_percent(run_solution: ConcreteSolution, x: int) -> ConcreteSolution:
     return back
 
 
-def move_5_percent(run_solution: ConcreteSolution) -> ConcreteSolution:
+def move_5_percent(run_solution: Solution) -> Solution:
     return move_x_percent(run_solution, 5)
 
 
@@ -380,22 +375,29 @@ def to_dbscan(run_solution: Solution, radius, min_elements=3) -> DBSolution:
     return new_Solution
 
 
-def first_solution(instance: Tuple[Point], num_part: int = -1) -> ConcreteSolution:
+def first_solution(instance: Tuple[Point], subspace: bool, num_part: int = -1) -> Solution:
     """
     ONLY FOR FIRST ITERATION. Dont use this in the computation
+    :param subspace:
     :param instance:
     :param num_part:
     :return: an initial Solution for the run
     """
-    if num_part <= 1:
+    if num_part < 1 and num_part != -1:
         raise Exception("The initial num_part is not valid ")
-    back = random_solution(instance) if num_part == -1 else ConcreteSolution(instance, num_part)
-    back.update_centers()
+    if subspace:
+        back = random_solution(instance, subspace) if num_part == -1 else PlaneSolution(instance, num_part)
+    else:
+        back = random_solution(instance, False) if num_part == -1 else ConcreteSolution(instance, num_part)
+        back.update_centers()
     return back
 
 
-def random_solution(instance: Tuple[Point], ) -> ConcreteSolution:
-    back = ConcreteSolution(instance, random.randint(1, 10))
+def random_solution(instance: Tuple[Point], subspace: bool) -> Solution:
+    if subspace:
+        back = PlaneSolution(instance, random.randint(1, 10))
+    else:
+        back = ConcreteSolution(instance, random.randint(1, 10))
     return back
 
 
