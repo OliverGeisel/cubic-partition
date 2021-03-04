@@ -19,13 +19,13 @@ class Partition:
 
         :param center: The center of the partition. Default ist the Origin
         """
-        self.__invalid_expected_value = True
-        self.__invalid_std_deviation = True
-        self.__invalid_center = True
+        self._invalid_expected_value = True
+        self._invalid_std_deviation = True
+        self._invalid_center = True
         self.__std_deviation = -1
         self._center = center
         self.__points_in_partition = list()
-        self.__expected_value = -1
+        self._expected_value = -1
 
     def __abs__(self):
         return self.get_except_value()
@@ -80,7 +80,7 @@ class Partition:
             z_val += point.z
         num_points = len(self)
         self._center = Point(x_val / num_points, y_val / num_points, z_val / num_points)
-        self.__invalid_center = False
+        self._invalid_center = False
         return True
 
     def __update_expected_value(self):
@@ -88,17 +88,19 @@ class Partition:
         for p in self:
             # TODO NUMPY map + reduce
             distance_sum += p - self._center
-        self.__expected_value = distance_sum / len(self)
-        self.__invalid_expected_value = False
+        self._expected_value = distance_sum
+        if len(self) != 0:
+            self._expected_value /= len(self)
+        self._invalid_expected_value = False
 
     def get_except_value(self) -> float:
         """
         is semantic equivalent to __abs__
         :return:
         """
-        if self.__invalid_expected_value:
+        if self._invalid_expected_value:
             self.__update_expected_value()
-        return self.__expected_value
+        return self._expected_value
 
     def __update_standard_deviation(self):
         center = self.get_center()
@@ -107,10 +109,10 @@ class Partition:
         for point in self:
             update += ((point - center) - exp_value) ** 2
         self.__std_deviation = update
-        self.__invalid_std_deviation = False
+        self._invalid_std_deviation = False
 
     def get_standard_deviation(self) -> float:
-        if self.__invalid_std_deviation:
+        if self._invalid_std_deviation:
             self.__update_standard_deviation()
         return self.__std_deviation
 
@@ -131,9 +133,9 @@ class Partition:
         self.__update_expected_value()
 
     def changed(self):
-        self.__invalid_center = True
-        self.__invalid_std_deviation = True
-        self.__invalid_expected_value = True
+        self._invalid_center = True
+        self._invalid_std_deviation = True
+        self._invalid_expected_value = True
 
     def get_most_distant_point(self) -> Point:
         # Todo improve
@@ -176,12 +178,12 @@ class Partition:
         return new_part1, new_part2
 
     def get_center(self) -> Point:
-        if self.__invalid_center:
+        if self._invalid_center:
             self.update_center()
         return self._center
 
     def is_changed(self) -> bool:
-        return self.__invalid_center or self.__invalid_expected_value or self.__invalid_std_deviation
+        return self._invalid_center or self._invalid_expected_value or self._invalid_std_deviation
 
     def is_valid(self) -> bool:
         return not self.is_changed()
@@ -374,10 +376,14 @@ class PlanePartition(Partition):
         self.__invalid_std_deviation = False
 
     def __update_expected_value(self):
+        update = 0.0
+        for point in self:
+            update += self.__distance_from_plane(point)
+        self._expected_value = update
         self.__invalid_expected_value = False
         return True
 
     def update_center(self) -> bool:
         self.update_normal_vector()
-        self.__invalid_center = False
+        self._invalid_center = False
         return True

@@ -81,21 +81,23 @@ def transformation(run_solution: Solution, config: SolverConfiguration) -> List[
     :return:
     """
     neighborhood = list()
-    # iterate
-    neighborhood.append(iterate_n_times(run_solution, config.sub_iterations))
-    # add
-    neighborhood.append((add_partition(run_solution, config.sub_iterations, random_Point())))
-    # remove
-    neighborhood.append(remove_partition(run_solution, config.sub_iterations))
-    # move
-    neighborhood.append(move_5_percent(run_solution))
-    # moveX
-    neighborhood.append(move_x_percent(run_solution, 10))
-    # split
-    neighborhood.append(split_cluster(run_solution))
-    # reduce
-    neighborhood.append(reduce_cluster(run_solution))
-
+    if config.trans_level >= 1:
+        # iterate
+        neighborhood.append(iterate_n_times(run_solution, config.sub_iterations))
+        # add
+        neighborhood.append((add_partition(run_solution, config.sub_iterations, random_Point())))
+        # remove
+        neighborhood.append(remove_partition(run_solution, config.sub_iterations))
+    if config.trans_level >= 2:
+        # split
+        neighborhood.append(split_cluster(run_solution))
+        # reduce
+        neighborhood.append(reduce_cluster(run_solution))
+    if config.trans_level >= 3:
+        # move
+        neighborhood.append(move_5_percent(run_solution))
+        # moveX
+        neighborhood.append(move_x_percent(run_solution, 10))
     return neighborhood
 
     # how big is the neighborhood
@@ -105,7 +107,7 @@ def transformation(run_solution: Solution, config: SolverConfiguration) -> List[
 
 def advanced_transformation(run_solution: Solution, options: List[Tuple[TransformationOperation,]]):
     back = list()
-    #Todo implement
+    # Todo implement
     for option in options:
         if True:
             pass

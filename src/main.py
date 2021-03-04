@@ -43,13 +43,15 @@ def set_global_indexes(solution):
         count += 1
 
 
-def second_level(solution: Solution, config: SolverConfiguration):
+def second_level(solution: Solution, best_score, config: SolverConfiguration):
     # run_solution is not complete
     run_solutin = solver.to_dbscan(solution, config.radius, config.min_elements)
     # TODO
-
+    run_solutin.link()
+    run_solutin.split_partitions()
     # evaluate db
-
+    result = evaluate.naive_imp_fast(run_solutin)
+    return run_solutin, result
 
 def iteration_for_solution(run_solution: Solution, best_score, subspaceclustering: bool, config: SolverConfiguration)-> Tuple[Solution, float]:
     for step in range(config.iterations):
@@ -92,8 +94,10 @@ def iteration_for_solution(run_solution: Solution, best_score, subspaceclusterin
                 # new score is too close to best score
                 print("No improvement")
                 if config.second_step:
-                    run_solution = second_level(run_solution)
-                    # run a new level -> DBSCAN
+                    db_solution, score = second_level(run_solution, best_score)
+                    if score < best_score:
+                        best_score = score
+                        run_solution = db_solution
                 break
             print(
                 f"New best solution! From {best_score} to {tmp_best_score}\nOperation was {operation}")

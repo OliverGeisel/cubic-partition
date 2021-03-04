@@ -271,6 +271,10 @@ class DBSolution(Solution):
         clone.partitions = deepcopy(self.partitions)
         return clone
 
+    def link(self):
+        for p in self.partitions:
+            p.linking()
+
     def split_partitions(self):
         all_new_partitions = list()
         for part in self.partitions:

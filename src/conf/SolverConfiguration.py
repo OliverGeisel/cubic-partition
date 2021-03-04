@@ -6,6 +6,7 @@ class SolverConfiguration:
 
     def __init__(self, multiple_start: bool, iterations: int, advanced_transformation: bool, second_step: bool):
         # for dbscan
+
         self.second_step = second_step
         self.radius = .2
         self.min_elements = 3
@@ -17,5 +18,6 @@ class SolverConfiguration:
         self.multiple_start = multiple_start
         self.num_start_partitions = 2
         self.parallel_eval = False
+        self.trans_level = 3
         # planeconfig
         self.complete_plane = False

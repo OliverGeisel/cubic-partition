@@ -184,7 +184,7 @@ def calc_p(triple):
     return (dist1 + dist2 + dist3) if x_sum else min(dist1, dist2, dist3) * .01
 
 
-def naive_imp_fast(solution: Solution, parallel=False):
+def naive_imp_fast(solution: Solution, parallel=False)->float:
     result = 0.0
     # calc point penalty
     three_points = combinations(solution.to_BiPoint_list(), 3)
